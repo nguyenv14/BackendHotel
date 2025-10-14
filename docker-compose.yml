@@ -1,0 +1,23 @@
+nhantestdocker:
+ build: .
+ dockerfile: ./docker/Dockerfile
+ container_name: DoAnCoSo2
+ working_dir: /var/www/html
+ ports:
+  - "80:80"
+ volumes:
+  - .:/var/www/html
+  - ./docker/nginx_log:/var/log/nginx
+  - ./docker/php-fpm/php-fpm.log:/var/php-fpm/php-fpm.log
+  - ./docker/config/app.conf:/ect/nginx/conf.d/app.conf
+ links: 
+  - mysql
+ mysql:
+  image: mysql:5.6
+  container_name: DoAnCoSo2_mysql
+  ports:
+   - "3306:3306"
+  volumes:
+    - ./docker/mysql:/var/lib/mysql
+  environment:
+    MYSQL_ROOT_PASSWORD: password  
