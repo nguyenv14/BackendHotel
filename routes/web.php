@@ -222,6 +222,26 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
                 Route::GET('/', 'index');
                 Route::GET('/edit-hotel', 'edit_item')->name('edit-hotel');
                 Route::POST('/update-hotel', 'update_item');
+                
+                /* Quản Lý Đặt Phòng Khách Sạn - Đã di chuyển từ admin */
+                Route::controller(OrderController::class)->group(function () {
+                    Route::group(['prefix' => 'order'], function () {
+                        Route::GET('/', 'list_items');
+                        Route::GET('/all-order', 'list_items');
+                        Route::GET('/view-order', 'view_order');
+                        Route::GET('/search-order', 'search_items');
+                        Route::GET('/load-order', 'load_items');
+                        Route::GET('/update-status-order', 'update_status_item');
+                        Route::POST('/delete-order', 'move_to_bin');
+                        Route::GET('/count-bin', 'count_bin');
+                        Route::GET('/list-deleted-order', 'list_bin');
+                        Route::GET('/load-deleted-order', 'load_bin');
+                        Route::GET('/search-bin', 'search_bin');
+                        Route::POST('/restore-order', 'un_bin');
+                        Route::POST('/delete-trash-order', 'bin_delete');
+                        Route::GET('/sort-order', 'sort_order');
+                    });
+                });
             });
         });
     }); 
@@ -395,25 +415,7 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
         });
     });
 
-    /* Quản Lý Đặt Phòng Khách Sạn */
-    Route::controller(OrderController::class)->group(function () {
-        Route::group(['prefix' => 'admin/order'], function () {
-            Route::GET('/', 'list_items');
-            Route::GET('/all-order', 'list_items');
-            Route::GET('/view-order', 'view_order');
-            Route::GET('/search-order', 'search_items');
-            Route::GET('/load-order', 'load_items');
-            Route::GET('/update-status-order', 'update_status_item');
-            Route::POST('/delete-order', 'move_to_bin');
-            Route::GET('/count-bin', 'count_bin');
-            Route::GET('/list-deleted-order', 'list_bin');
-            Route::GET('/load-deleted-order', 'load_bin');
-            Route::GET('/search-bin', 'search_bin');
-            Route::POST('/restore-order', 'un_bin');
-            Route::POST('/delete-trash-order', 'bin_delete');
-            Route::GET('/sort-order', 'sort_order');
-        });
-    });
+    /* Quản Lý Đặt Phòng Khách Sạn - Đã di chuyển vào Hotel Manager */
 
     /* Nhật Ký Hoạt Động*/
     Route::group(['prefix' => 'admin/activity'], function () {

@@ -1,10 +1,5 @@
-{{-- 
-    DEPRECATED: File này không còn được sử dụng
-    Đã di chuyển sang: resources/views/admin/Hotel/ManagerHotel/Order/manager_order.blade.php
-    Giữ lại để backup
---}}
-@extends('admin.admin_layout')
-@section('admin_content')
+@extends('admin.Hotel.ManagerHotel.manager_hotel_layout')
+@section('manager_hotel')
     <div class="page-header">
         <h3 class="page-title">
             <span class="page-title-icon bg-gradient-primary text-white me-2">
@@ -58,10 +53,9 @@
                     <div class="col-sm-2" style="margin-left: 30px">
                         @hasanyroles(['admin','manager'])
                         <div class="input-group">
-                            <a style="text-decoration: none" href="{{ URL::to('admin/order/list-deleted-order') }}">
+                            <a style="text-decoration: none" href="{{ URL::to('admin/hotel/manager/order/list-deleted-order' . ($hotel ? '?hotel_id=' . $hotel->hotel_id : '')) }}">
                                 <button id="bin" type="button" class="btn btn-gradient-danger btn-icon-text">
                                 </button>
-
                             </a>
                         </div>
                         @endhasanyroles
@@ -96,6 +90,7 @@
     </nav>
     {{-- Phân Trang Bằng Ajax --}}
     <script>
+        var hotelId = {{ $hotel->hotel_id ?? 'null' }};
         var notePage = 1;
         getPosts(notePage);
         load_count_bin();
@@ -107,8 +102,12 @@
         });
 
         function getPosts(page) {
+            var url = '{{ url('admin/hotel/manager/order/load-order?page=') }}' + page;
+            if (hotelId) {
+                url += '&hotel_id=' + hotelId;
+            }
             $.ajax({
-                url: '{{ url('admin/order/load-order?page=') }}' + page,
+                url: url,
                 method: 'get',
                 data: {
 
@@ -123,8 +122,12 @@
         }
 
         function load_count_bin() {
+            var url = '{{ url('admin/hotel/manager/order/count-bin') }}';
+            if (hotelId) {
+                url += '?hotel_id=' + hotelId;
+            }
             $.ajax({
-                url: '{{ url('admin/order/count-bin') }}',
+                url: url,
                 method: 'GET',
                 success: function(data) {
                     if (data == 0) {
@@ -149,7 +152,7 @@
             var _token = $('meta[name="csrf-token"]').attr('content');
 
             $.ajax({
-                url: '{{ url('admin/order/update-status-order') }}',
+                url: '{{ url('admin/ /update-status-order') }}',
                 method: 'GET',
                 data: {
                     _token: _token,
@@ -173,12 +176,15 @@
 
         $('#search').keyup(function() {
             var key_sreach = $(this).val();
+            var url = '{{ url('admin/hotel/manager/order/search-order') }}';
+            var data = { key_sreach: key_sreach };
+            if (hotelId) {
+                data.hotel_id = hotelId;
+            }
             $.ajax({
-                url: '{{ url('admin/order/search-order') }}',
+                url: url,
                 method: 'GET',
-                data: {
-                    key_sreach: key_sreach,
-                },
+                data: data,
                 success: function(data) {
                     $('#load_order').html(data);
                 },
@@ -208,15 +214,17 @@
         });
 
         function move_to_bin(item_id) {
+            var data = { order_id: item_id };
+            if (hotelId) {
+                data.hotel_id = hotelId;
+            }
             $.ajax({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ url('admin/order/delete-order') }}',
+                url: '{{ url('admin/hotel/manager/order/delete-order') }}',
                 method: 'POST',
-                data: {
-                    order_id: item_id,
-                },
+                data: data,
                 success: function(data) {
                     $(".loading").css({
                         "display": "none"
@@ -244,12 +252,14 @@
     <script>
         $('.sort-order').click(function(){
             var type = $(this).data('type');
+            var data = { type: type };
+            if (hotelId) {
+                data.hotel_id = hotelId;
+            }
             $.ajax({
-                url: '{{ url('admin/order/sort-order') }}',
+                url: '{{ url('admin/hotel/manager/order/sort-order') }}',
                 method: 'get',
-                data: {
-                    type:type,
-                },
+                data: data,
                 success: function(data) {
                     $('#load_order').html(data);
                 },

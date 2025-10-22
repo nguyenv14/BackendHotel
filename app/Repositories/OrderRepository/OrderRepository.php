@@ -6,7 +6,7 @@ use App\Models\ManipulationActivity;
 use App\Models\Payment;
 use App\Models\Orderer;
 use App\Models\OrderDetails;
-use Auth;
+use Illuminate\Support\Facades\Auth;
 class OrderRepository extends BaseRepository implements OrderRepositoryInterface
 {
     //lấy model tương ứng
@@ -130,14 +130,18 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
           <button style="margin-top:10px" class="btn-sm btn-gradient-danger btn-fw btn-order-status"  data-order_code="'.$value_order->order_code.'" data-order_status="-1" >Từ Chối <i class="mdi mdi-calendar-remove"></i></button> <br>';
           }
           if($value_order->order_status == -1 || $value_order->order_status == 1 || $value_order->order_status == 2 || $value_order->order_status == -2){
-            if(Auth::user()->hasAnyRoles(['admin','manager'])) {
+            $user = Auth::user();
+            if($user->roles()->whereIn('roles_name', ['admin','manager'])->exists()) {
                 $output .= '<button type="button" class="btn-sm btn-gradient-danger btn-icon-text btn-delete-item mt-2" data-item_id = "'. $value_order->order_id.'">
                 <i class="mdi mdi-delete-forever btn-icon-prepend"></i> Xóa Đơn</button><br>';
             }
           }
   
+          // URL thống nhất cho cả admin và hotel_manager
+          $viewOrderUrl = 'admin/hotel/manager/order/view-order?order_id=' . $value_order->order_id;
+          
           $output .= '
-          <a href="'.URL('admin/order/view-order?order_id=' . $value_order->order_id).'"><button style="margin-top:10px" class="btn-sm btn-gradient-info btn-rounded btn-fw">Xem Đơn <i class="mdi mdi-eye"></i></button></a> <br>
+          <a href="'.URL($viewOrderUrl).'"><button style="margin-top:10px" class="btn-sm btn-gradient-info btn-rounded btn-fw">Xem Đơn <i class="mdi mdi-eye"></i></button></a> <br>
           </td>
       </tr>';
         }
