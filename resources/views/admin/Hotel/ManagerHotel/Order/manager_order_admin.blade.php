@@ -1,8 +1,3 @@
-{{-- 
-    DEPRECATED: File này không còn được sử dụng
-    Đã di chuyển sang: resources/views/admin/Hotel/ManagerHotel/Order/manager_order.blade.php
-    Giữ lại để backup
---}}
 @extends('admin.admin_layout')
 @section('admin_content')
     <div class="page-header">
@@ -28,7 +23,7 @@
         <div class="card">
             <div class="card-body">
                 <div style="display: flex;justify-content: space-between">
-                    <div class="card-title col-sm-6">Bảng Danh Sách Đơn Đặt Phòng</div>
+                    <div class="card-title col-sm-6">Bảng Danh Sách Đơn Đặt Phòng (Tất Cả Hotel)</div>
                     <div class="col-sm-2">
                         <div class="btn-group">
                             <button type="button" class="btn btn-gradient-info dropdown-toggle"
@@ -58,7 +53,7 @@
                     <div class="col-sm-2" style="margin-left: 30px">
                         @hasanyroles(['admin','manager'])
                         <div class="input-group">
-                            <a style="text-decoration: none" href="{{ URL::to('admin/order/list-deleted-order') }}">
+                            <a style="text-decoration: none" href="{{ URL::to('admin/hotel/manager/order/list-deleted-order') }}">
                                 <button id="bin" type="button" class="btn btn-gradient-danger btn-icon-text">
                                 </button>
 
@@ -108,7 +103,7 @@
 
         function getPosts(page) {
             $.ajax({
-                url: '{{ url('admin/order/load-order?page=') }}' + page,
+                url: '{{ url('admin/hotel/manager/order/load-order?page=') }}' + page,
                 method: 'get',
                 data: {
 
@@ -124,7 +119,7 @@
 
         function load_count_bin() {
             $.ajax({
-                url: '{{ url('admin/order/count-bin') }}',
+                url: '{{ url('admin/hotel/manager/order/count-bin') }}',
                 method: 'GET',
                 success: function(data) {
                     if (data == 0) {
@@ -149,7 +144,7 @@
             var _token = $('meta[name="csrf-token"]').attr('content');
 
             $.ajax({
-                url: '{{ url('admin/order/update-status-order') }}',
+                url: '{{ url('admin/hotel/manager/order/update-status-order') }}',
                 method: 'GET',
                 data: {
                     _token: _token,
@@ -174,7 +169,7 @@
         $('#search').keyup(function() {
             var key_sreach = $(this).val();
             $.ajax({
-                url: '{{ url('admin/order/search-order') }}',
+                url: '{{ url('admin/hotel/manager/order/search-order') }}',
                 method: 'GET',
                 data: {
                     key_sreach: key_sreach,
@@ -212,7 +207,7 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ url('admin/order/delete-order') }}',
+                url: '{{ url('admin/hotel/manager/order/delete-order') }}',
                 method: 'POST',
                 data: {
                     order_id: item_id,
@@ -245,7 +240,7 @@
         $('.sort-order').click(function(){
             var type = $(this).data('type');
             $.ajax({
-                url: '{{ url('admin/order/sort-order') }}',
+                url: '{{ url('admin/hotel/manager/order/sort-order') }}',
                 method: 'get',
                 data: {
                     type:type,
@@ -260,3 +255,4 @@
         })
     </script>
 @endsection
+

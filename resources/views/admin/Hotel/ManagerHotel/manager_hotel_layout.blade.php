@@ -260,7 +260,7 @@
                                     @elseif(Auth::user()->hasRoles('employee'))
                                         {{ 'Nhân Viên Hệ Thống' }}
                                     @else
-                                        {{ 'Chưa Đặt Quyền Hạn' }}
+                                        {{ 'Quản lý Khách Sạn' }}
                                     @endif
                                 </span>
                             </div>
@@ -365,6 +365,21 @@
                         </a>
                         <div class="collapse" id="hotel-overview-info-menu">
                             <ul class="nav flex-column sub-menu">
+                            </ul>
+                        </div>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="collapse" href="#ui-basic-order" aria-expanded="false"
+                            aria-controls="ui-basic">
+                            <span class="menu-title">Quản Lý Đặt Phòng</span>
+                            <i class="menu-arrow"></i>
+                            <i class="mdi mdi-map-marker-radius menu-icon"></i>
+                        </a>
+                        <div class="collapse" id="ui-basic-order">
+                            <ul class="nav flex-column sub-menu">
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/hotel/manager/order/all-order?hotel_id=' . $hotel->hotel_id) }}">Danh Sách Đơn Đặt Phòng</a></li>
                             </ul>
                         </div>
                     </li>

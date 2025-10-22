@@ -1,8 +1,3 @@
-{{-- 
-    DEPRECATED: File này không còn được sử dụng
-    Đã di chuyển sang: resources/views/admin/Hotel/ManagerHotel/Order/view_order.blade.php
-    Giữ lại để backup
---}}
 @extends('admin.admin_layout')
 @section('admin_content')
     <div class="page-header">
@@ -186,3 +181,4 @@
         </div>
     </div>
 @endsection
+

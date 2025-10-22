@@ -1,10 +1,5 @@
-{{-- 
-    DEPRECATED: File này không còn được sử dụng
-    Đã di chuyển sang: resources/views/admin/Hotel/ManagerHotel/Order/view_order.blade.php
-    Giữ lại để backup
---}}
-@extends('admin.admin_layout')
-@section('admin_content')
+@extends('admin.Hotel.ManagerHotel.manager_hotel_layout')
+@section('manager_hotel')
     <div class="page-header">
         <h3 class="page-title">
             <span class="page-title-icon bg-gradient-primary text-white me-2">

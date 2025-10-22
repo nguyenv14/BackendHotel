@@ -9,88 +9,283 @@ use App\Models\Orderer;
 use App\Models\Payment;
 use App\Models\TypeRoom;
 use App\Models\Coupon;
+use App\Models\Hotel;
 use App\Repositories\OrderRepository\OrderRepositoryInterface;
 use Illuminate\Http\Request;
 use App\Models\Statistical;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Mail;
 
 session_start();
 
 class OrderController extends Controller
 {
     /**
-     * @var PostRepositoryInterface|\App\Repositories\Repository
+     * @var OrderRepositoryInterface
      */
     protected $orderRepo;
     public function __construct(OrderRepositoryInterface $orderRepo)
     {
         $this->orderRepo = $orderRepo;
     }
+    
+    /**
+     * Kiểm tra user có role cụ thể không
+     */
+    private function hasRole($user, $role)
+    {
+        return $user->roles()->where('roles_name', $role)->exists();
+    }
+    
+    /**
+     * Kiểm tra user có bất kỳ role nào trong danh sách không
+     */
+    private function hasAnyRole($user, $roles)
+    {
+        return $user->roles()->whereIn('roles_name', $roles)->exists();
+    }
     public function sort_order(Request $request)
     {
-        switch ($request->type) {
-            case '0':
-                $result = $this->orderRepo->getAllByPaginate(5);
-                break;
-            case '1':
-                $result = Order::where('order_status', 0)->orderby('order_id','DESC')->get();
-                break;
-            case '2':
-                $result = Order::where('order_status', -1)->orderby('order_id','DESC')->get();
-                break;
-            case '3':
-                $result = Order::where('order_status', -2)->orderby('order_id','DESC')->get();
-                break;
-            case '4':
-                $result = Order::where('order_status', 1)->orwhere('order_status', 2)->orderby('order_id','DESC')->get();
-                break;
-            case '5':
-                $result = Order::join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
-                    ->where('tbl_payment.payment_status', 1)->orderby('order_id','DESC')->get();
-                break;
-            case '6':
-                $result = Order::join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
-                    ->where('tbl_payment.payment_status', 0)->orderby('order_id','DESC')->get();
-                break;
-            case '7':
-                $result = Order::join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
-                    ->where('tbl_payment.payment_method', 4)->orderby('order_id','DESC')->get();
-                break;
-            case '8':
-                $result = Order::join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
-                    ->where('tbl_payment.payment_method', 1)->orderby('order_id','DESC')->get();
-                break;
-            default:
-                # code...
-                break;
+        $users = auth()->user();
+        
+        // Kiểm tra quyền truy cập: chỉ admin và hotel_manager
+        if (!$this->hasAnyRole($users, ['admin', 'hotel_manager'])) {
+            abort(403, 'Bạn không có quyền truy cập chức năng này');
         }
+        
+        // Tạo base query với phân quyền (bao gồm hotel_id từ request nếu có)
+        $query = $this->getOrderQueryByRoleAndRequest2($users, $request);
+        
+        // Áp dụng filter theo type
+        $result = $this->applySortFilter($query, $request->type, $users);
+        
         $output = $this->orderRepo->output_item($result);
         echo $output;
     }
-
-    public function list_items()
+    
+    /**
+     * Tạo query base theo role và request (cho sort/search)
+     */
+    private function getOrderQueryByRoleAndRequest2($user, $request)
     {
-        $items = $this->orderRepo->getAllByPaginate(5);
-        return view('admin.Order.manager_order')->with(compact('items'));
+        $query = Order::query();
+        
+        if ($this->hasRole($user, 'hotel_manager')) {
+            // Hotel manager: lấy theo hotel_id của user
+            $query->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                  ->where('tbl_order_details.hotel_id', $user->hotel_id);
+        } elseif ($request->has('hotel_id')) {
+            // Admin có hotel_id: lấy theo hotel được chọn
+            $query->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                  ->where('tbl_order_details.hotel_id', $request->hotel_id);
+        }
+        // Nếu admin không có hotel_id: không filter (lấy tất cả)
+        
+        return $query;
     }
-    public function load_items()
+    
+    /**
+     * Tạo query base theo role của user
+     */
+    private function getOrderQueryByRole($user)
     {
-        $items = $this->orderRepo->getAllByPaginate(5);
+        $query = Order::query();
+        
+        // Nếu là hotel_manager, chỉ lấy order của hotel riêng
+        if ($this->hasRole($user, 'hotel_manager')) {
+            $query->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                  ->where('tbl_order_details.hotel_id', $user->hotel_id);
+        }
+        
+        return $query;
+    }
+    
+    /**
+     * Áp dụng filter theo type
+     */
+    private function applySortFilter($query, $type, $user)
+    {
+        switch ($type) {
+            case '0': // Tất cả
+                return $this->hasRole($user, 'hotel_manager') ? 
+                    $query->paginate(5) : 
+                    $this->orderRepo->getAllByPaginate(5);
+                    
+            case '1': // Chờ xử lý
+                return $query->where('order_status', 0)->orderBy('order_id', 'DESC')->get();
+                
+            case '2': // Đã từ chối
+                return $query->where('order_status', -1)->orderBy('order_id', 'DESC')->get();
+                
+            case '3': // Đã hủy
+                return $query->where('order_status', -2)->orderBy('order_id', 'DESC')->get();
+                
+            case '4': // Đã duyệt/Hoàn thành
+                return $query->whereIn('order_status', [1, 2])->orderBy('order_id', 'DESC')->get();
+                
+            case '5': // Đã thanh toán
+                return $query->join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
+                    ->where('tbl_payment.payment_status', 1)->orderBy('order_id', 'DESC')->get();
+                    
+            case '6': // Chưa thanh toán
+                return $query->join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
+                    ->where('tbl_payment.payment_status', 0)->orderBy('order_id', 'DESC')->get();
+                    
+            case '7': // Thanh toán online
+                return $query->join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
+                    ->where('tbl_payment.payment_method', 4)->orderBy('order_id', 'DESC')->get();
+                    
+            case '8': // Thanh toán tiền mặt
+                return $query->join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
+                    ->where('tbl_payment.payment_method', 1)->orderBy('order_id', 'DESC')->get();
+                    
+            default:
+                return collect(); // Trả về collection rỗng
+        }
+    }
+
+    public function list_items(Request $request)
+    {
+        $users = auth()->user();
+        
+        // Kiểm tra quyền truy cập: chỉ admin và hotel_manager
+        if (!$this->hasAnyRole($users, ['admin', 'hotel_manager'])) {
+            abort(403, 'Bạn không có quyền truy cập chức năng này');
+        }
+        
+        // Hotel manager: tự động lấy hotel_id từ user
+        if ($this->hasRole($users, 'hotel_manager')) {
+            $hotel = Hotel::query()->where('hotel_id', $users->hotel_id)->first();
+            $items = Order::query()
+                ->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                ->where('tbl_order_details.hotel_id', $users->hotel_id)
+                ->paginate(5);
+            return view('admin.Hotel.ManagerHotel.Order.manager_order')->with(compact('items', 'hotel'));
+        } 
+        
+        // Admin: phải có hotel_id trong request
+        if ($request->has('hotel_id')) {
+            $hotel = Hotel::query()->where('hotel_id', $request->hotel_id)->first();
+            if (!$hotel) {
+                abort(404, 'Không tìm thấy hotel');
+            }
+            $items = Order::query()
+                ->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                ->where('tbl_order_details.hotel_id', $request->hotel_id)
+                ->paginate(5);
+            return view('admin.Hotel.ManagerHotel.Order.manager_order')->with(compact('items', 'hotel'));
+        } else {
+            // Admin không có hotel_id: hiển thị tất cả order
+            $items = $this->orderRepo->getAllByPaginate(5);
+            return view('admin.Hotel.ManagerHotel.Order.manager_order_admin')->with(compact('items'));
+        }
+    }
+    public function load_items(Request $request)
+    {
+        $users = auth()->user();
+        
+        // Kiểm tra quyền truy cập: chỉ admin và hotel_manager
+        if (!$this->hasAnyRole($users, ['admin', 'hotel_manager'])) {
+            abort(403, 'Bạn không có quyền truy cập chức năng này');
+        }
+        
+        // Lấy items theo role và hotel_id
+        $items = $this->getOrderItemsByRoleAndRequest($users, $request);
+        
         $output = $this->orderRepo->output_item($items);
         echo $output;
     }
+    
+    /**
+     * Lấy danh sách order theo role của user
+     */
+    private function getOrderItemsByRole($user)
+    {
+        if ($this->hasRole($user, 'hotel_manager')) {
+            // Hotel manager chỉ load order của hotel riêng
+            $query = Order::query()
+                ->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                ->where('tbl_order_details.hotel_id', $user->hotel_id);
+            return $query->paginate(5);
+        } else {
+            // Admin có thể load tất cả order
+            return $this->orderRepo->getAllByPaginate(5);
+        }
+    }
+    
+    /**
+     * Lấy danh sách order theo role và request (có hotel_id)
+     */
+    private function getOrderItemsByRoleAndRequest($user, $request)
+    {
+        if ($this->hasRole($user, 'hotel_manager')) {
+            // Hotel manager: lấy theo hotel_id của user
+            $query = Order::query()
+                ->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                ->where('tbl_order_details.hotel_id', $user->hotel_id);
+            return $query->paginate(5);
+        } elseif ($request->has('hotel_id')) {
+            // Admin có hotel_id: lấy theo hotel được chọn
+            $query = Order::query()
+                ->leftJoin('tbl_order_details', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+                ->where('tbl_order_details.hotel_id', $request->hotel_id);
+            return $query->paginate(5);
+        } else {
+            // Admin không có hotel_id: lấy tất cả
+            return $this->orderRepo->getAllByPaginate(5);
+        }
+    }
     public function view_order(Request $request)
     {
+        $users = auth()->user();
+        
+        // Kiểm tra quyền truy cập: chỉ admin và hotel_manager
+        if (!$this->hasAnyRole($users, ['admin', 'hotel_manager'])) {
+            abort(403, 'Bạn không có quyền truy cập chức năng này');
+        }
+        
         $order = Order::where('order_id', $request->order_id)->first();
+        
+        // Kiểm tra quyền xem order cụ thể
+        if ($this->hasRole($users, 'hotel_manager')) {
+            // Hotel manager chỉ xem được order của hotel riêng
+            $orderdetails = OrderDetails::where('order_code', $order['order_code'])->first();
+            if ($orderdetails->hotel_id != $users->hotel_id) {
+                abort(403, 'Bạn không có quyền xem order này');
+            }
+        }
+        
         $orderer = Orderer::where('orderer_id', $order['orderer_id'])->first();
         $orderdetails = OrderDetails::where('order_code', $order['order_code'])->first();
 
-        return view('admin.Order.view_order')->with(compact('orderer', 'orderdetails'));
+        // Admin và hotel_manager dùng view riêng
+        if ($this->hasRole($users, 'hotel_manager')) {
+            return view('admin.Hotel.ManagerHotel.Order.view_order')->with(compact('orderer', 'orderdetails'));
+        } else {
+            return view('admin.Hotel.ManagerHotel.Order.view_order_admin')->with(compact('orderer', 'orderdetails'));
+        }
     }
 
     public function update_status_item(Request $request)
     {
+        $users = auth()->user();
+        
+        // Kiểm tra quyền truy cập: chỉ admin và hotel_manager
+        if (!$this->hasAnyRole($users, ['admin', 'hotel_manager'])) {
+            abort(403, 'Bạn không có quyền truy cập chức năng này');
+        }
+        
         $order = Order::where('order_code', $request->order_code)->first();
+        
+        // Kiểm tra quyền cập nhật order cụ thể
+        if ($this->hasRole($users, 'hotel_manager')) {
+            // Hotel manager chỉ cập nhật được order của hotel riêng
+            $orderdetails = OrderDetails::where('order_code', $order['order_code'])->first();
+            if ($orderdetails->hotel_id != $users->hotel_id) {
+                abort(403, 'Bạn không có quyền cập nhật order này');
+            }
+        }
+        
         $order->order_status = $request->order_status;
         $order->save();
         /* Còn Thiếu Xử Lý Về Sau Này */
@@ -153,9 +348,40 @@ class OrderController extends Controller
     }
     public function search_items(Request $request)
     {
-        $result = $this->orderRepo->searchIDorName($request->key_sreach);
+        $users = auth()->user();
+        
+        // Kiểm tra quyền truy cập: chỉ admin và hotel_manager
+        if (!$this->hasAnyRole($users, ['admin', 'hotel_manager'])) {
+            abort(403, 'Bạn không có quyền truy cập chức năng này');
+        }
+        
+        // Validate input
+        $searchKey = trim($request->key_sreach);
+        if (empty($searchKey)) {
+            return response()->json(['error' => 'Từ khóa tìm kiếm không được để trống']);
+        }
+        
+        // Tạo query base với phân quyền (bao gồm hotel_id từ request nếu có)
+        $query = $this->getOrderQueryByRoleAndRequest2($users, $request);
+        
+        // Áp dụng search filter
+        $result = $this->applySearchFilter($query, $searchKey);
+        
         $output = $this->orderRepo->output_item($result);
         echo $output;
+    }
+    
+    /**
+     * Áp dụng search filter
+     */
+    private function applySearchFilter($query, $searchKey)
+    {
+        return $query->where(function($q) use ($searchKey) {
+            $q->where('order_code', 'like', '%'.$searchKey.'%')
+              ->orWhere('orderer_name', 'like', '%'.$searchKey.'%')
+              ->orWhere('orderer_phone', 'like', '%'.$searchKey.'%')
+              ->orWhere('orderer_email', 'like', '%'.$searchKey.'%');
+        })->orderBy('order_id', 'DESC')->get();
     }
     public function move_to_bin(Request $request)
     {
@@ -193,10 +419,11 @@ class OrderController extends Controller
         $result = $this->orderRepo->restore_item($request->order_id);
     }
 
-    public function statistical(){
+    public function statistical()
+    {
         $now = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
         $statical = Statistical::where('order_date', $now)->first();
-        if($statical == ''){
+        if ($statical == '') {
             $statis = new Statistical();
             $statis->order_date = $now;
             $statis->sales = 0;
@@ -207,53 +434,53 @@ class OrderController extends Controller
             $statis->save();
         }
         // if ($statical) {
-            $order = Order::where('created_at', 'like', $now . '%')->get();
-            $statical->total_order = $order->count();
+        $order = Order::where('created_at', 'like', $now . '%')->get();
+        $statical->total_order = $order->count();
 
-            $order_completion = Order::where('created_at', 'like', $now . '%')->where('order_status', 1)->get();
-            
-            if ($order_completion->count()) {
-                $sales = 0;
-                $quantity_order_room = 0;
-                foreach ($order_completion as $v_order) {
-                    $price_room = $v_order->orderdetails->price_room;
-                    $hotel_fee = $v_order->orderdetails->hotel_fee;
-                    if ($v_order->coupon_name_code != 'Không Có') {
-                        $coupon_sale_price = $v_order->coupon_sale_price;
-                    } else {
-                        $coupon_sale_price = 0;
-                    }
-                    $sales = $sales + ($price_room + $hotel_fee - $coupon_sale_price);
-                    $count_orderdetails = Order::where('order_code', $v_order->order_code)->count();
-                    $quantity_order_room = $quantity_order_room + $count_orderdetails;
+        $order_completion = Order::where('created_at', 'like', $now . '%')->where('order_status', 1)->get();
+
+        if ($order_completion->count()) {
+            $sales = 0;
+            $quantity_order_room = 0;
+            foreach ($order_completion as $v_order) {
+                $price_room = $v_order->orderdetails->price_room;
+                $hotel_fee = $v_order->orderdetails->hotel_fee;
+                if ($v_order->coupon_name_code != 'Không Có') {
+                    $coupon_sale_price = $v_order->coupon_sale_price;
+                } else {
+                    $coupon_sale_price = 0;
                 }
-                $statical->sales = $sales;
-                $statical->quantity_order_room = $quantity_order_room;
+                $sales = $sales + ($price_room + $hotel_fee - $coupon_sale_price);
+                $count_orderdetails = Order::where('order_code', $v_order->order_code)->count();
+                $quantity_order_room = $quantity_order_room + $count_orderdetails;
             }
+            $statical->sales = $sales;
+            $statical->quantity_order_room = $quantity_order_room;
+        }
 
-            $order_ref = Order::where('created_at', 'like', $now . '%')
-                ->where(function ($query) {
-                    $query->where('order_status', -1)
-                        ->orwhere('order_status', -2);
-                })->get();
+        $order_ref = Order::where('created_at', 'like', $now . '%')
+            ->where(function ($query) {
+                $query->where('order_status', -1)
+                    ->orwhere('order_status', -2);
+            })->get();
 
-            if ($order_ref->count()) {
-                $price_order_refused = 0;
-                $order_refused = $order_ref->count();
-                foreach ($order_ref as $v_order) {
-                    $price_room = $v_order->orderdetails->price_room;
-                    $hotel_fee = $v_order->orderdetails->hotel_fee;
-                    if ($v_order->coupon_name_code != 'Không Có') {
-                        $coupon_sale_price = $v_order->coupon_sale_price;
-                    } else {
-                        $coupon_sale_price = 0;
-                    }
-                    $price_order_refused = $price_order_refused + ( $price_room + $hotel_fee - $coupon_sale_price );
+        if ($order_ref->count()) {
+            $price_order_refused = 0;
+            $order_refused = $order_ref->count();
+            foreach ($order_ref as $v_order) {
+                $price_room = $v_order->orderdetails->price_room;
+                $hotel_fee = $v_order->orderdetails->hotel_fee;
+                if ($v_order->coupon_name_code != 'Không Có') {
+                    $coupon_sale_price = $v_order->coupon_sale_price;
+                } else {
+                    $coupon_sale_price = 0;
                 }
-                $statical->price_order_refused = $price_order_refused;
-                $statical->order_refused = $order_refused;
+                $price_order_refused = $price_order_refused + ($price_room + $hotel_fee - $coupon_sale_price);
             }
-            $statical->save();
+            $statical->price_order_refused = $price_order_refused;
+            $statical->order_refused = $order_refused;
+        }
+        $statical->save();
         // }
     }
 }
