@@ -321,7 +321,7 @@
                         </div>
                     </li>
 
-                    <li class="nav-item">
+                    {{-- <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="collapse" href="#ui-restaurants" aria-expanded="false"
                             aria-controls="ui-basic">
                             <span class="menu-title">Quản Lý Nhà Hàng</span>
@@ -338,7 +338,7 @@
                                 </li>
                             </ul>
                         </div>
-                    </li>
+                    </li> --}}
 
                     <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="collapse" href="#ui-basic-ads" aria-expanded="false"
@@ -514,6 +514,22 @@
                                 <li class="nav-item"> <a class="nav-link" href="{{ URL::to('#') }}">Thêm
                                         Khách Sạn Vào SK</a>
                                 </li>
+                            </ul>
+                        </div>
+                    </li>
+
+
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="collapse" href="#ui-basic-order" aria-expanded="false"
+                            aria-controls="ui-basic">
+                            <span class="menu-title">Quản Lý Đặt Phòng</span>
+                            <i class="menu-arrow"></i>
+                            <i class="mdi mdi-map-marker-radius menu-icon"></i>
+                        </a>
+                        <div class="collapse" id="ui-basic-order">
+                            <ul class="nav flex-column sub-menu">
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/order/all-order') }}">Danh Sách Đơn Đặt Phòng</a></li>
                             </ul>
                         </div>
                     </li>

@@ -8,6 +8,9 @@ use Closure;
 use Illuminate\Http\Request;
 use Session;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Http\Response;
+use Illuminate\Http\RedirectResponse;
+
 
 class AdminManagerAccess
 {

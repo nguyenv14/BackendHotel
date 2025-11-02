@@ -23,46 +23,80 @@ class HotelController extends Controller
     /* Trang Khách Sạn */
     public function index()
     {
-        $meta = array(
+        $meta = [
             'title' => 'Khách Sạn',
             'description' => 'MyHotel - Trang Tìm Kiếm Và Đặt Phòng Khách Sạn Trong Khu Vực Đà Nẵng',
             'keywords' => 'Khách Sạn Đà Nẵng , Đà Nẵng , Du Lịch , Đặt Khách Sạn , Khách Sạn Giá Rẻ',
             'canonical' => request()->url(),
             'sitename' => 'nhuandeptraivanhanbro.doancoso2.laravel.vn',
             'image' => '',
-        );
-        /* Lấy Khách Sạn Đang Thịnh Hành Dựa Vào Số Lần Đặt Phòng Trong Khách Sạn*/
-        $order_details = DB::table('tbl_order_details')->select(DB::raw('hotel_id, COUNT(tbl_order_details.hotel_id) as count_hotel'))
-        ->groupBy('hotel_id')->orderBy('count_hotel', 'DESC')->get(); 
-      
-        $list_id_order = array();
-        foreach($order_details as $key => $order){ 
-            $list_id_order[$key] = $order->hotel_id;
-            if($key == 3){
-                break;
-            }
-        }
-        $hotel_trend = Hotel::wherein('hotel_id',$list_id_order)->where('hotel_status', 1)->get();
+        ];
 
-        /* Lấy Khách Sạn Mới Dựa Vào hotel_id DESC */
-        $hotel_new = Hotel::wherenotin('hotel_id',$list_id_order)->where('hotel_status', 1)->orderby('hotel_id','DESC')->take(4)->get();
-        $list_id_new = array();
-        foreach($hotel_new as $key => $hotel){
-            $list_id_new[$key] = $hotel->hotel_id;
-        }
-        /* Lấy Khách Sạn Được Xem Nhiều Nhất (Thịnh Hành) hotel_id DESC */
-        $hotel_view = Hotel::wherenotin('hotel_id',$list_id_order)->wherenotin('hotel_id',$list_id_new)->where('hotel_status', 1)->orderby('hotel_view','DESC')->take(4)->get();
-        $list_id_view = array();
-        foreach($hotel_view as $key => $hotel){
-            $list_id_view[$key] = $hotel->hotel_id;
-        }
-        $all_hotel = Hotel::wherenotin('hotel_id',$list_id_order)->wherenotin('hotel_id',$list_id_new)->wherenotin('hotel_id',$list_id_view)->where('hotel_status', 1)->inRandomOrder()->get();
-        /* Lấy Ngẩu Nhiên Tất Cả Mã Giảm Giá*/
+        /** Lấy top khách sạn có nhiều đặt phòng nhất */
+        $list_id_order = DB::table('tbl_order_details')
+            ->select('hotel_id', DB::raw('COUNT(hotel_id) as total'))
+            ->groupBy('hotel_id')
+            ->orderByDesc('total')
+            ->limit(4)
+            ->pluck('hotel_id')
+            ->toArray();
+
+        $hotel_trend = Hotel::with(['room.typeroom'])
+            ->whereIn('hotel_id', $list_id_order)
+            ->where('hotel_status', 1)
+            ->get();
+
+        /** Lấy khách sạn mới */
+        $hotel_new = Hotel::with(['room.typeroom'])
+            ->whereNotIn('hotel_id', $list_id_order)
+            ->where('hotel_status', 1)
+            ->orderByDesc('hotel_id')
+            ->take(4)
+            ->get();
+
+        $list_id_new = $hotel_new->pluck('hotel_id')->toArray();
+
+        /** Lấy khách sạn có lượt xem nhiều */
+        $hotel_view = Hotel::with(['room.typeroom'])
+            ->whereNotIn('hotel_id', array_merge($list_id_order, $list_id_new))
+            ->where('hotel_status', 1)
+            ->orderByDesc('hotel_view')
+            ->take(4)
+            ->get();
+
+        $list_id_view = $hotel_view->pluck('hotel_id')->toArray();
+
+        /** Lấy ngẫu nhiên các khách sạn còn lại */
+        $all_hotel = Hotel::with(['room.typeroom'])
+            ->whereNotIn('hotel_id', array_merge($list_id_order, $list_id_new, $list_id_view))
+            ->where('hotel_status', 1)
+            ->inRandomOrder()
+            ->get();
+
+        /** Coupon và Banner ADS */
         $TimeNow = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
-        $coupons = Coupon::inRandomOrder()->where('coupon_end_date', '>=', $TimeNow)->where('coupon_start_date', '<=', $TimeNow)->where('coupon_qty_code', '>', 0)->get();
-        /* Lấy Khẩu Nhiên Banner ADS */
-        $BannerADS = BannerADS::where('bannerads_page', 2)->where('bannerads_status', 1)->inRandomOrder()->first();
-        return view('pages.hotel')->with(compact('meta', 'hotel_trend' , 'hotel_new' ,'hotel_view', 'all_hotel' ,'coupons' ,'BannerADS'));
+
+        $coupons = Coupon::query()
+            ->inRandomOrder()
+            ->where('coupon_end_date', '>=', $TimeNow)
+            ->where('coupon_start_date', '<=', $TimeNow)
+            ->where('coupon_qty_code', '>', 0)
+            ->get();
+
+        $BannerADS = BannerADS::where('bannerads_page', 2)
+            ->where('bannerads_status', 1)
+            ->inRandomOrder()
+            ->first();
+        dd($hotel_new);
+        return view('pages.hotel', compact(
+            'meta',
+            'hotel_trend',
+            'hotel_new',
+            'hotel_view',
+            'all_hotel',
+            'coupons',
+            'BannerADS'
+        ));
     }
 
     /* Trang Chi Tiết Khách Sạn */
@@ -93,13 +127,13 @@ class HotelController extends Controller
         if ($orderdetails) {
             $suggested_room = Room::where('hotel_id', $request->hotel_id)->where('room_id', $orderdetails->room_id)->first();
         } else {
-        /* Lấy Theo Phòng Mới Theo Vào */
+            /* Lấy Theo Phòng Mới Theo Vào */
             $suggested_room = Room::where('hotel_id', $request->hotel_id)->orderby('room_id', 'DESC')->first();
         }
         /* Kết Thúc Phòng Đề Xuất */
 
         /* Lấy Ra Phòng Trong Khách Sạn */
-        $rooms = Room::where('hotel_id', $request->hotel_id)->wherenotin('room_id',[$suggested_room->room_id])->get();
+        $rooms = Room::where('hotel_id', $request->hotel_id)->wherenotin('room_id', [$suggested_room->room_id])->get();
 
         /* Lấy Ra Ảnh Của Tất Cả Phòng Trong Khách Sạn */
         $all_rooms = Room::where('hotel_id', $request->hotel_id)->get();
@@ -117,12 +151,14 @@ class HotelController extends Controller
         /* Khách Sạn Xung Quanh */
         $area_hotel = Hotel::where('area_id', $hotel->area_id)->wherenotin('hotel_id', [$hotel->hotel_id])->get();
 
-        $evaluate_hotel = Evaluate::where('hotel_id', $request->hotel_id)->orderBy('evaluate_id', 'DESC')->get();
+        $evaluate_hotel = Evaluate::with(['room.typeroom'])->where('hotel_id', $request->hotel_id)->orderBy('evaluate_id', 'DESC')->get();
+        // foreach ($evaluate_hotel as $key => $evaluate) {
+        //     dump($evaluate->room->room_name ?? "aa " . $evaluate->room_id);
+        // }
+        /* Lấy Khẩu Nhiên Banner ADS */
+        $BannerADS = BannerADS::where('bannerads_page', 3)->where('bannerads_status', 1)->inRandomOrder()->first();
 
-         /* Lấy Khẩu Nhiên Banner ADS */
-         $BannerADS = BannerADS::where('bannerads_page', 3)->where('bannerads_status', 1)->inRandomOrder()->first();
-
-        return view('pages.hoteldetails')->with(compact('meta', 'hotel', 'video', 'images_hotel', 'representative_image', 'rooms', 'gallary_room', 'area_hotel', 'coupons', 'suggested_room', 'evaluate_hotel','BannerADS'));
+        return view('pages.hoteldetails')->with(compact('meta', 'hotel', 'video', 'images_hotel', 'representative_image', 'rooms', 'gallary_room', 'area_hotel', 'coupons', 'suggested_room', 'evaluate_hotel', 'BannerADS'));
     }
 
     public function detail_convenient_room(Request $request)
@@ -136,23 +172,24 @@ class HotelController extends Controller
         }
     }
 
-    public function load_convenient_room($room, $gallery_room){
-        $type_room = TypeRoom::where('room_id',$room->room_id)->first();
+    public function load_convenient_room($room, $gallery_room)
+    {
+        $type_room = TypeRoom::where('room_id', $room->room_id)->first();
         $output = '';
         $folder = preg_replace('/\s+/', '', $room->room_name);
-        $output.= '
+        $output .= '
         <div class="box-inforooms">
         <div class="inforooms-left">
             <div class="inforooms-left-box ">
                 <div id="owl-demo" class="inforooms-left-js owl-carousel owl-theme">';
-                foreach ($gallery_room as $v_gallery_room) {
-                    $output .= '
+        foreach ($gallery_room as $v_gallery_room) {
+            $output .= '
                         <div class="item">
                             <img width="650px" height="575px" style="object-fit: cover; border-radius: 8px;"
                             src="public/fontend/assets/img/hotel/room/gallery_' . $folder . '/' . $v_gallery_room->gallery_room_image . '" alt="' . $v_gallery_room->gallery_room_name . '">
                         </div>';
-                }
-            $output.= '   
+        }
+        $output .= '   
                 </div>
             </div>
         </div>
@@ -160,7 +197,7 @@ class HotelController extends Controller
             <div class="inforooms-right-box">
                 <div class="inforooms-right-top">
                     <div class="inforooms-right-title">
-                        <span>'.$room->room_name.'</span>
+                        <span>' . $room->room_name . '</span>
                     </div>
                     <div class="inforooms-right-btn-X">
                         <i class="fa-solid fa-x"></i>
@@ -168,7 +205,7 @@ class HotelController extends Controller
                 </div>
                 <div class="inforooms-right-scroll">
                     <div class="inforooms-right-member">
-                        <i class="fa-solid fa-user-group"></i> <span>'.$room->room_amount_of_people.' người</span>
+                        <i class="fa-solid fa-user-group"></i> <span>' . $room->room_amount_of_people . ' người</span>
                     </div>
                     <ul>
                         <li>Sức chứa tối đa của phòng 3</li>
@@ -179,11 +216,11 @@ class HotelController extends Controller
                     <div class="inforooms-right-size">
                         <div class="inforooms-right-item">
                             <i class="fa-solid fa-maximize"></i>
-                            <span>'.$room->room_acreage.'m2</span>
+                            <span>' . $room->room_acreage . 'm2</span>
                         </div>
                         <div style="margin-left: 20px;" class="inforooms-right-item">
                             <i class="fa-solid fa-eye"></i>
-                            <span>'.$room->room_view.'</span>
+                            <span>' . $room->room_view . '</span>
                         </div>
                     </div>
                     <div style="color: #48bb78;" class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-left-Item">
@@ -235,7 +272,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/dieuhoa.png').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/dieuhoa.png') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Điều hòa nhiệt độ</span>
@@ -245,7 +282,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/cuaso.svg').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/cuaso.svg') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Cửa sổ</span>
@@ -255,7 +292,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/dovesinh.svg').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/dovesinh.svg') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Đồ vệ sinh cá nhân</span>
@@ -265,7 +302,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/tivi.svg').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/tivi.svg') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Màn hình ti vi</span>
@@ -278,7 +315,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/dieuhoa.png').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/dieuhoa.png') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Điều hòa nhiệt độ</span>
@@ -288,7 +325,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/cuaso.svg').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/cuaso.svg') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Cửa sổ</span>
@@ -298,7 +335,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/dovesinh.svg').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/dovesinh.svg') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Đồ vệ sinh cá nhân</span>
@@ -308,7 +345,7 @@ class HotelController extends Controller
                                 <div class="inforooms-right-tiennghi-left-group">
                                     <div class="inforooms-right-tiennghi-icon">
                                         <img width="24px" height="24px" style="object-fit: cover;"
-                                            src="'.URL('public/fontend/assets/img/thongtinkhachsan/tienich/tivi.svg').'" alt="">
+                                            src="' . URL('public/fontend/assets/img/thongtinkhachsan/tienich/tivi.svg') . '" alt="">
                                     </div>
                                     <div class="inforooms-right-tiennghi-text">
                                         <span>Màn hình ti vi</span>
@@ -322,26 +359,26 @@ class HotelController extends Controller
                 </div>
 
                 <div class="inforooms-right-bottom">';
-                if($type_room->type_room_condition == 0){
-                $output.='
+        if ($type_room->type_room_condition == 0) {
+            $output .= '
                 <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-Three">
-                    <span>'.number_format($type_room->type_room_price,0,',','.').'đ</span>
+                    <span>' . number_format($type_room->type_room_price, 0, ',', '.') . 'đ</span>
                 </div>';
-                }else{
-                $price_sale_end = $type_room->type_room_price - ($type_room->type_room_price / 100 * $type_room->type_room_price_sale);
-                $output.='
+        } else {
+            $price_sale_end = $type_room->type_room_price - ($type_room->type_room_price / 100 * $type_room->type_room_price_sale);
+            $output .= '
                 <div class="inforooms-right-bottom-ptsale">
-                    <span>-'.$type_room->type_room_price_sale.'%</span>
+                    <span>-' . $type_room->type_room_price_sale . '%</span>
                 </div>
                 <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-Two">
-                    <span>'.number_format($type_room->type_room_price,0,',','.').'đ</span>
+                    <span>' . number_format($type_room->type_room_price, 0, ',', '.') . 'đ</span>
                 </div>
                 <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-Three">
-                    <span>'.number_format($price_sale_end,0,',','.').'đ</span>
+                    <span>' . number_format($price_sale_end, 0, ',', '.') . 'đ</span>
                 </div>
                 ';
-                }
-                $output.='
+        }
+        $output .= '
                 <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-four">
                         <span>/ phòng / đêm</span>
                     </div>
@@ -495,22 +532,22 @@ class HotelController extends Controller
                     </div>
                 </div>
                 ';
-                if($typeroom->type_room_quantity == 0){
-                    $output.='
+            if ($typeroom->type_room_quantity == 0) {
+                $output .= '
                     <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-six">
                         <span>Hết Phòng</span>
                     </div>
                     ';
-                }else{
-                    $output.='
-                    <a href="'.URL('dat-phong?hotel_id='.$hotel_id.'&type_room_id='.$typeroom->type_room_id).'">
-                    <div id="add-coupon-room" class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-six" data-coupon_name_code ='.$coupons[$coupon_rd]->coupon_name_code.'>
+            } else {
+                $output .= '
+                    <a href="' . URL('dat-phong?hotel_id=' . $hotel_id . '&type_room_id=' . $typeroom->type_room_id) . '">
+                    <div id="add-coupon-room" class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-six" data-coupon_name_code =' . $coupons[$coupon_rd]->coupon_name_code . '>
                         <span>Đặt phòng</span>
                     </div> 
                     </a>
                     ';
-                }
-               $output.='
+            }
+            $output .= '
                 <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-seven">
                     <span>Giá cuối cùng</span>
                 </div>
@@ -533,8 +570,8 @@ class HotelController extends Controller
                 $query->where('tbl_hotel.hotel_name', 'like', '%' . $key . '%')
                     ->orWhere('tbl_area.area_name', 'like', '%' . $key . '%');
             })->where(function ($query) {
-            $query->where('tbl_hotel.hotel_status', '=', 1);
-        })->get();
+                $query->where('tbl_hotel.hotel_status', '=', 1);
+            })->get();
 
         $output = '';
         foreach ($results as $result) {

@@ -6,12 +6,14 @@ use App\Http\Controllers\AreaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BannerADSController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\CheckOrderCustomerController;
 use App\Http\Controllers\CheckOutController;
 use App\Http\Controllers\CompanyConfigController;
 use App\Http\Controllers\ConfigWebController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EvaluateController;
 use App\Http\Controllers\FacilitiesHotelController;
 use App\Http\Controllers\FacilitiesRoomController;
 use App\Http\Controllers\GalleryHotelController;
@@ -19,18 +21,15 @@ use App\Http\Controllers\GalleryRoomController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HotelController;
 use App\Http\Controllers\LoginAndRegister;
+use App\Http\Controllers\ManageHotel\StaffController;
 use App\Http\Controllers\ManagerHotelController;
 use App\Http\Controllers\ManipulationActivityController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\SearchMasterController;
 use App\Http\Controllers\ServiceChargeController;
 use App\Http\Controllers\SliderController;
 use App\Http\Controllers\TypeRoomController;
-use App\Http\Controllers\SearchMasterController;
-use App\Http\Controllers\CheckOrderCustomerController;
-use App\Http\Controllers\EvaluateController;
-use App\Http\Controllers\RestaurantsController;
-
 use Illuminate\Support\Facades\Route;
 
 /* Back-end */
@@ -75,20 +74,20 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
         });
     });
 
-    Route::group(['prefix' => 'admin/restaurants', 'middleware' => 'hotel.manager.access'], function () {
-        Route::get('/all-restaurants', [RestaurantsController::class, 'index']);
-        Route::get('/add-restaurant', [RestaurantsController::class, 'add_restaurant']);
-        Route::get('/edit-restaurant', [RestaurantsController::class, 'edit_restaurant']);
-        Route::get('/restaurant-detail', [RestaurantsController::class, 'restaurant_detail']);
-        Route::get('/load-restaurants', [RestaurantsController::class, 'load_restaurants']);
-        Route::post('loading-gallery', [RestaurantsController::class, 'loading_gallery']);
-        Route::post('/save-restaurant', [RestaurantsController::class, 'save_restaurant']);
-        Route::post('/update-restaurant', [RestaurantsController::class, 'update_restaurant']);
-        Route::post('/insert-menu', [RestaurantsController::class, 'insert_menu']);
-        Route::post('/insert-table', [RestaurantsController::class, 'insert_table']);
-        Route::get('/delete-item', [RestaurantsController::class, 'delete_item']);
-        Route::post('/insert-gallery/{restaurant_id}', [RestaurantsController::class, 'insert_gallery']);
-    });
+    // Route::group(['prefix' => 'admin/restaurants', 'middleware' => 'hotel.manager.access'], function () {
+    //     Route::get('/all-restaurants', [RestaurantsController::class, 'index']);
+    //     Route::get('/add-restaurant', [RestaurantsController::class, 'add_restaurant']);
+    //     Route::get('/edit-restaurant', [RestaurantsController::class, 'edit_restaurant']);
+    //     Route::get('/restaurant-detail', [RestaurantsController::class, 'restaurant_detail']);
+    //     Route::get('/load-restaurants', [RestaurantsController::class, 'load_restaurants']);
+    //     Route::post('loading-gallery', [RestaurantsController::class, 'loading_gallery']);
+    //     Route::post('/save-restaurant', [RestaurantsController::class, 'save_restaurant']);
+    //     Route::post('/update-restaurant', [RestaurantsController::class, 'update_restaurant']);
+    //     Route::post('/insert-menu', [RestaurantsController::class, 'insert_menu']);
+    //     Route::post('/insert-table', [RestaurantsController::class, 'insert_table']);
+    //     Route::get('/delete-item', [RestaurantsController::class, 'delete_item']);
+    //     Route::post('/insert-gallery/{restaurant_id}', [RestaurantsController::class, 'insert_gallery']);
+    // });
 
     /* Quản Lý Khách Hàng */
     Route::controller(CustomerController::class)->group(function () {
@@ -222,7 +221,20 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
                 Route::GET('/', 'index');
                 Route::GET('/edit-hotel', 'edit_item')->name('edit-hotel');
                 Route::POST('/update-hotel', 'update_item');
-                
+
+                Route::controller(StaffController::class)->group(function () {
+                    Route::group(['prefix' => 'staff'], function () {
+                        Route::GET('/', 'index')->name('manage_hotel.staff');
+                        Route::GET('/load-table-admin', 'loadTableAdminByHotel');
+                        Route::GET('/add-staff', 'goToAddStaff');
+                        Route::POST('/save-staff', 'saveStaff');
+                        Route::GET('/edit-staff', 'goToEditStaff');
+                        Route::POST('/update-staff', 'updateStaff');
+                        Route::POST('/delete-staff', 'delete_staff');
+                        Route::GET('/search-staff', 'searchStaff');
+                    });
+                });
+
                 /* Quản Lý Đặt Phòng Khách Sạn - Đã di chuyển từ admin */
                 Route::controller(OrderController::class)->group(function () {
                     Route::group(['prefix' => 'order'], function () {
@@ -244,7 +256,7 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
                 });
             });
         });
-    }); 
+    });
 
     /* Quản Lý Tiện Ích Khách Sạn */
     Route::controller(FacilitiesHotelController::class)->group(function () {
@@ -450,6 +462,26 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
             Route::group(['prefix' => 'admin/config-footer'], function () {
                 Route::GET('/', 'show_company_config');
                 Route::GET('/edit-content-footer', 'edit_content_footer');
+            });
+        });
+        /* Quản Lý Đơn Đặt Phòng */
+        Route::controller(OrderController::class)->group(function () {
+            Route::group(['prefix' => 'admin/order'], function () {
+                Route::GET('/', 'list_items');
+                Route::GET('/all-order', 'list_items');
+                Route::GET('/view-order', 'view_order');
+                Route::GET('/search-order', 'search_items');
+                Route::GET('/load-order', 'load_items');
+                Route::GET('/update-status-order', 'update_status_item');
+                Route::POST('/delete-order', 'move_to_bin');
+                Route::GET('/count-bin', 'count_bin');
+                Route::GET('/list-deleted-order', 'list_bin');
+                Route::GET('/load-deleted-order', 'load_bin');
+                Route::GET('/search-bin', 'search_bin');
+                Route::POST('/restore-order', 'un_bin');
+                Route::POST('/delete-trash-order', 'bin_delete');
+                Route::GET('/sort-order', 'sort_order');
+                Route::get('/get-hotels', 'getHotels');
             });
         });
     });
