@@ -244,6 +244,7 @@
                                 <span class="login-status online"></span>
                                 <!--change to offline or busy as needed-->
                             </div>
+                            <input type="hidden" value="{{ $hotel->hotel_id }}" name="hotel_id" id="hotel_id">
                             <div class="nav-profile-text d-flex flex-column">
                                 <span class="font-weight-bold mb-2">
                                     <?php
@@ -269,6 +270,7 @@
                     </li>
 
 
+
                     <li class="nav-item">
                         <a class="nav-link" href="{{ URL::to('admin/hotel/manager?hotel_id=' . $hotel->hotel_id) }}">
                             <span class="menu-title">{{ $hotel->hotel_name }}</span>
@@ -276,9 +278,29 @@
                         </a>
                     </li>
 
+                    @hasanyroles(['admin','manager'])
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="collapse" href="#ui-basic-admin" aria-expanded="false"
+                            aria-controls="ui-basic">
+                            <span class="menu-title">Quản Lý Staff</span>
+                            <i class="menu-arrow"></i>
+                            <i class="mdi mdi-account-circle menu-icon"></i>
+                        </a>
+                        <div class="collapse" id="ui-basic-admin">
+                            <ul class="nav flex-column sub-menu">
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/hotel/manager/staff?hotel_id=' . $hotel->hotel_id) }}">Danh
+                                        Sách Admin</a></li>
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/hotel/manager/staff/add-staff?hotel_id=' . $hotel->hotel_id) }}">Thêm
+                                        Tài Khoản Admin</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                    @endhasanyroles
                     <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="collapse" href="#hotel-gallery-menu"
-                            aria-expanded="false" aria-controls="hotel-gallery-menu">
+                            aria-expanded="false" aria-controls="hotel-gallery">
                             <span class="menu-title">Quản Lý Ảnh Và Video KS</span>
                             <i class="menu-arrow"></i>
                             <i class="mdi mdi-folder-image menu-icon"></i>
@@ -301,7 +323,7 @@
 
                     <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="collapse" href="#hotel-rooms-menu" aria-expanded="false"
-                            aria-controls="hotel-rooms-menu">
+                            aria-controls="hotel-rooms">
                             <span class="menu-title">Quản Lý Phòng</span>
                             <i class="menu-arrow"></i>
                             <i class="mdi mdi-book-variant menu-icon"></i>
@@ -379,7 +401,8 @@
                         <div class="collapse" id="ui-basic-order">
                             <ul class="nav flex-column sub-menu">
                                 <li class="nav-item"> <a class="nav-link"
-                                        href="{{ URL::to('admin/hotel/manager/order/all-order?hotel_id=' . $hotel->hotel_id) }}">Danh Sách Đơn Đặt Phòng</a></li>
+                                        href="{{ URL::to('admin/hotel/manager/order/all-order?hotel_id=' . $hotel->hotel_id) }}">Danh
+                                        Sách Đơn Đặt Phòng</a></li>
                             </ul>
                         </div>
                     </li>
@@ -432,52 +455,52 @@
             // Đóng tất cả collapse menu
             $('.sidebar .collapse').removeClass('show');
             $('.sidebar .nav-link[data-bs-toggle="collapse"]').attr('aria-expanded', 'false');
-            
+
             // Ngăn chặn misc.js tự động thêm active class cho hotel name - tăng thời gian delay
             setTimeout(function() {
                 $('.sidebar .nav-item:first-child').removeClass('active');
                 $('.sidebar .nav-item:first-child .nav-link').removeClass('active');
             }, 500);
-            
+
             // Thêm interval để liên tục loại bỏ active state
             setInterval(function() {
                 $('.sidebar .nav-item:first-child').removeClass('active');
                 $('.sidebar .nav-item:first-child .nav-link').removeClass('active');
             }, 1000);
-            
+
             // Smooth collapse animation - chỉ áp dụng cho menu items có collapse
             $('.sidebar .nav-item:not(:first-child) .nav-link[data-bs-toggle="collapse"]').on('click', function(e) {
                 e.preventDefault();
                 var target = $(this).attr('href');
                 var $target = $(target);
-                
+
                 // Toggle collapse
                 $target.collapse('toggle');
-                
+
                 // Update aria-expanded
                 var isExpanded = $target.hasClass('show');
                 $(this).attr('aria-expanded', isExpanded);
             });
-            
+
             // Add smooth transitions - chỉ áp dụng cho menu items thông thường
             $('.sidebar .nav-item:not(:first-child) .nav-link').on('mouseenter', function() {
                 $(this).addClass('hover-effect');
             }).on('mouseleave', function() {
                 $(this).removeClass('hover-effect');
             });
-            
+
             // Hotel name click - chỉ redirect, không ảnh hưởng đến menu khác
             $('.sidebar .nav-item:first-child .nav-link').on('click', function(e) {
                 // Chỉ redirect, không có hiệu ứng collapse
                 e.stopPropagation();
                 return true;
             });
-            
+
             // Ngăn chặn event bubbling từ hotel name
             $('.sidebar .nav-item:first-child').on('click', function(e) {
                 e.stopPropagation();
             });
-            
+
             // Đảm bảo các menu items khác không bị ảnh hưởng bởi hotel name
             $('.sidebar .nav-item:not(:first-child)').on('click', function(e) {
                 // Chỉ xử lý menu items thông thường
@@ -485,7 +508,7 @@
                     return; // Đã xử lý ở trên
                 }
             });
-            
+
             // Initialize tooltips if needed
             $('[data-bs-toggle="tooltip"]').tooltip();
         });

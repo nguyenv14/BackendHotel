@@ -505,9 +505,8 @@
                         <div class="trendinghotel_boxcontent item">
                             <div class="trendinghotel_boxcontent_img_text">
                                 <div class="trendinghotel_img trendinghotel_img_trend_{{ $key + 1 }}">
-
+                                    
                                     <div class="trending_img_box_top">
-                                         
                                         @if ($hotel->room->typeroom->type_room_condition == 1)
                                             <div class="trending_sale">
                                                 <span
