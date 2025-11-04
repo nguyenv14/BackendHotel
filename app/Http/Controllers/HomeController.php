@@ -27,7 +27,6 @@ class HomeController extends Controller
         );
         $areas = Area::take(7)->get();
       
-
         $hotel_flashsale = Hotel::join('tbl_room','tbl_hotel.hotel_id','=','tbl_room.hotel_id')
         ->join('tbl_area','tbl_hotel.area_id','=','tbl_area.area_id')
         ->join('tbl_type_room','tbl_type_room.room_id','=','tbl_room.room_id')

@@ -10,6 +10,8 @@ use App\Http\Controllers\ApiOrderHotelController;
 use App\Http\Controllers\ApiOrderRestaurantController;
 use App\Http\Controllers\ApiSearchController;
 use App\Http\Controllers\ApiRestaurantController;
+use App\Http\Controllers\ApiSlideController;
+use App\Http\Controllers\ApiSloganController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +25,11 @@ use Illuminate\Support\Facades\Route;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+// Trang Chủ
+Route::get('/slides', [ApiSlideController::class, 'getSlides']);
+Route::get('/slogans', [ApiSloganController::class, 'getSlogans']);
+Route::get('/areas', [ApiAreaController::class, 'getAreas']);
+Route::get('/flashsale-hotels', [ApiHotelController::class, 'getFlashSaleHotels']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
@@ -32,9 +39,6 @@ Route::post('/login', [App\Http\Controllers\ApiAuthController::class, 'login']);
 Route::post('/logout', [App\Http\Controllers\ApiAuthController::class, 'logout'])->middleware('auth:api');
 Route::get('/get-profile', [App\Http\Controllers\ApiAuthController::class, 'getProfile'])->middleware('auth:api');
 
-/* Đặc Điểm Của API Là Không Xử Lý Được Session -> Cách Xử Lý Là Viết Bên Route Chứ Bên Này Không Được */
-/* Mặc định là api/admin/category/all-category */
-/* Các Bảo Mật API Được Sử Dụng Json Web Token JWT Tìm Hiểu Thêm Để Bảo Mật API */
 Route::get('admin/category/all-category', 'App\Http\Controllers\APICategoryProduct@all_category');
 Route::get('/get-brand', 'App\Http\Controllers\APITestController@getAPi');
 
