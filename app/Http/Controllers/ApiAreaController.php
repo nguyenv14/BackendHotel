@@ -9,22 +9,33 @@ use Google\Service\HangoutsChat\Resource\Rooms;
 use Illuminate\Http\Request;
 
 class ApiAreaController extends Controller{
-     public function getAreas(Request $request){
+    public function getAreas(Request $request)
+    {
         $result = Area::get();
-        if($result){
+
+        if ($result->count() > 0) {
+    
+            $host = asset('public/fontend/assets/img/area');
+            
+            $data = $result->map(function ($item) use ($host) {
+                $item->area_image = $host . '/' . $item->area_image;
+                return $item;
+            });
+
             return response()->json([
                 'status_code' => 200,
                 'message' => 'Thành công!',
-                'data' => $result,
+                'data' => $data,
             ]);
-        }else{
+        } else {
             return response()->json([
-                'status_code' => 404, 
+                'status_code' => 404,
                 'message' => 'Không truy xuất được dữ liệu',
                 'data' => null,
-            ]) ;
+            ]);
         }
     }
+
 
     public function getAreaListHaveHotel(Request $request){
         $result = Area::get();

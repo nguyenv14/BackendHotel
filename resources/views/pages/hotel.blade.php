@@ -507,7 +507,7 @@
                                 <div class="trendinghotel_img trendinghotel_img_trend_{{ $key + 1 }}">
                                     
                                     <div class="trending_img_box_top">
-                                        @if ($hotel->room->typeroom->type_room_condition == 1)
+                                        @if ($hotel->room && $hotel->room->typeroom && $hotel->room->typeroom->type_room_condition == 1)
                                             <div class="trending_sale">
                                                 <span
                                                     class="trending_sale_text">-{{ $hotel->room->typeroom->type_room_price_sale }}%</span>
@@ -566,7 +566,7 @@
                                     </div>
                                     <?php echo $hotel->order_time($hotel->hotel_id); ?>
                                     <div class="trendinghotel_text-box-price">
-                                        @if ($hotel->room->typeroom->type_room_condition == 1)
+                                        @if ($hotel->room && $hotel->room->typeroom && $hotel->room->typeroom->type_room_condition == 1)
                                             <div class="trendinghotel_text-box-price-one">
                                                 <span>{{ number_format($hotel->room->typeroom->type_room_price, 0, ',', '.') }}đ</span>
                                             </div>
@@ -580,12 +580,11 @@
                                             <div style="margin-top:-5px " class="trendinghotel_text-box-price-two">
                                                 <span>&nbsp;</span>
                                             </div>
-                                            @php
-                                                $price_sale = $hotel->room->typeroom->type_room_price;
-                                            @endphp
-                                            <div class="trendinghotel_text-box-price-two">
-                                                <span>{{ number_format($price_sale, 0, ',', '.') }}đ</span>
-                                            </div>
+                                            @if ($hotel->room && $hotel->room->typeroom)
+                                                <div class="trendinghotel_text-box-price-two">
+                                                    <span>{{ number_format($hotel->room->typeroom->type_room_price, 0, ',', '.') }}đ</span>
+                                                </div>
+                                            @endif
                                         @endif
                                         {{-- Lấy Mã Giảm Giá Ngẩu Nhiên --}}
                                         @php
@@ -696,7 +695,7 @@
 
                                     <div class="trending_img_box_top">
                                          
-                                        @if ($hotel->room->typeroom->type_room_condition == 1)
+                                        @if ($hotel->room && $hotel->room->typeroom && $hotel->room->typeroom->type_room_condition == 1)
                                             <div class="trending_sale">
                                                 <span
                                                     class="trending_sale_text">-{{ $hotel->room->typeroom->type_room_price_sale }}%</span>
@@ -755,7 +754,7 @@
                                     </div>
                                     <?php echo $hotel->order_time($hotel->hotel_id); ?>
                                     <div class="trendinghotel_text-box-price">
-                                        @if ($hotel->room->typeroom->type_room_condition == 1)
+                                        @if ($hotel->room && $hotel->room->typeroom && $hotel->room->typeroom->type_room_condition == 1)
                                             <div class="trendinghotel_text-box-price-one">
                                                 <span>{{ number_format($hotel->room->typeroom->type_room_price, 0, ',', '.') }}đ</span>
                                             </div>
@@ -769,12 +768,11 @@
                                             <div style="margin-top:-5px " class="trendinghotel_text-box-price-two">
                                                 <span>&nbsp;</span>
                                             </div>
-                                            @php
-                                                $price_sale = $hotel->room->typeroom->type_room_price;
-                                            @endphp
-                                            <div class="trendinghotel_text-box-price-two">
-                                                <span>{{ number_format($price_sale, 0, ',', '.') }}đ</span>
-                                            </div>
+                                            @if ($hotel->room && $hotel->room->typeroom)
+                                                <div class="trendinghotel_text-box-price-two">
+                                                    <span>{{ number_format($hotel->room->typeroom->type_room_price, 0, ',', '.') }}đ</span>
+                                                </div>
+                                            @endif
                                         @endif
                                         {{-- Lấy Mã Giảm Giá Ngẩu Nhiên --}}
                                         @php
@@ -842,7 +840,7 @@
                             <div class="trendinghotel_boxcontent_img_text">
                                 <div class="trendinghotel_img trendinghotel_img_view_{{ $key + 1 }}">
                                     <div class="trending_img_box_top">
-                                        @if ($hotel->room->typeroom->type_room_condition == 1)
+                                        @if ($hotel->room && $hotel->room->typeroom && $hotel->room->typeroom->type_room_condition == 1)
                                             <div class="trending_sale">
                                                 <span
                                                     class="trending_sale_text">-{{ $hotel->room->typeroom->type_room_price_sale }}%</span>
@@ -901,7 +899,7 @@
                                     </div>
                                     <?php echo $hotel->order_time($hotel->hotel_id); ?>
                                     <div class="trendinghotel_text-box-price">
-                                        @if ($hotel->room->typeroom->type_room_condition == 1)
+                                        @if ($hotel->room && $hotel->room->typeroom && $hotel->room->typeroom->type_room_condition == 1)
                                             <div class="trendinghotel_text-box-price-one">
                                                 <span>{{ number_format($hotel->room->typeroom->type_room_price, 0, ',', '.') }}đ</span>
                                             </div>
@@ -915,12 +913,12 @@
                                             <div style="margin-top:-5px " class="trendinghotel_text-box-price-two">
                                                 <span>&nbsp;</span>
                                             </div>
-                                            @php
-                                                $price_sale = $hotel->room->typeroom->type_room_price;
-                                            @endphp
-                                            <div class="trendinghotel_text-box-price-two">
-                                                <span>{{ number_format($price_sale, 0, ',', '.') }}đ</span>
-                                            </div>
+                                            @if ($hotel->room && $hotel->room->typeroom)
+                                                <div class="trendinghotel_text-box-price-two">
+                                                    <span>{{ number_format($hotel->room->typeroom->type_room_price, 0, ',', '.') }}đ</span>
+                                                </div>
+                                            @endif
+
                                         @endif
                                         {{-- Lấy Mã Giảm Giá Ngẩu Nhiên --}}
                                         @php

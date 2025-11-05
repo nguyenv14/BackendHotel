@@ -16,48 +16,25 @@ class ApiHotelController extends Controller
 {
     public function getFlashSaleHotels(Request $request)
     {
-        // $result = Hotel::whereIn('hotel_id', function ($query) {
-        // $query->select('tbl_room.hotel_id')
-        //       ->from('tbl_room')
-        //       ->join('tbl_type_room', 'tbl_type_room.room_id', '=', 'tbl_room.room_id')
-        //       ->where('tbl_type_room.type_room_condition', 1);
-        // })
-        // ->join('tbl_area', 'tbl_hotel.area_id', '=', 'tbl_area.area_id')
-        // ->select('*')
-        // ->orderByDesc('tbl_hotel.created_at')
-        // ->take(4)
-        // ->get();
+        $result = Hotel::join('tbl_room', 'tbl_hotel.hotel_id', '=', 'tbl_room.hotel_id')
+            ->join('tbl_area', 'tbl_hotel.area_id', '=', 'tbl_area.area_id')
+            ->join('tbl_type_room', 'tbl_type_room.room_id', '=', 'tbl_room.room_id')
+            ->where('tbl_type_room.type_room_condition', 1)
+            ->orderBy('tbl_type_room.type_room_price_sale', 'DESC')
+            ->select('tbl_hotel.*', 'tbl_area.area_name', 'tbl_type_room.type_room_price_sale')
+            ->get()
+            ->unique('hotel_name')   
+            ->take(4)                
+            ->values();             
 
-        $result = Hotel::join('tbl_room', 'tbl_hotel.hotel_id', '=', 'tbl_room.hotel_id')->join('tbl_area', 'tbl_hotel.area_id', '=', 'tbl_area.area_id')->join('tbl_type_room', 'tbl_type_room.room_id', '=', 'tbl_room.room_id')->where('tbl_type_room.type_room_condition', 1)->orderby('tbl_type_room.type_room_price_sale', 'DESC')->get();
-        $result = $this->super_unique($result, 'hotel_name');
-        $result = array_slice($result, 4);
+        return response()->json([
+            'status_code' => 200,
+            'message' => 'Thành công!',
+            'data' => $result,
+        ]);
 
-        if ($result) {
-            //$data = $this->convertDataToJson($result);
-            return response()->json([
-                'status_code' => 200,
-                'message'     => 'Thành công!',
-                'data'        => $result,
-            ]);
-        } else {
-            return response()->json([
-                'status_code' => 404,
-                'message'     => 'Không truy xuất được dữ liệu',
-                'data'        => null,
-            ]);
-        }
     }
     
-    function super_unique($array,$key)
-    {
-       $temp_array = [];
-       foreach ($array as $v) {
-           if (!isset($temp_array[$v[$key]]))
-           $temp_array[$v[$key]] = $v;
-       }
-       $array = array_values($temp_array);
-       return $array;
-    }
 
     public function getHotelList(Request $request): \Illuminate\Http\JsonResponse
     {
