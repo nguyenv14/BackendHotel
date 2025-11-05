@@ -945,8 +945,12 @@
                                 </div>
                                 <div class="userswrite-boxone-infousers-item">
                                     <i class="fa-solid fa-bed"></i>
-                                    <span
-                                        class="userswrite-boxone-infousers-item-text">{{ $v_evaluate_hotel->room->room_name }}</span>
+                                    @if ($v_evaluate_hotel->room)
+                                        <span class="userswrite-boxone-infousers-item-text">
+                                            {{ $v_evaluate_hotel->room->room_name }}
+                                        </span>
+                                    @endif
+
                                 </div>
                             </div>
                         </div>

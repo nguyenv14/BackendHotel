@@ -87,7 +87,7 @@ class HotelController extends Controller
             ->where('bannerads_status', 1)
             ->inRandomOrder()
             ->first();
-        dd($hotel_new);
+   
         return view('pages.hotel', compact(
             'meta',
             'hotel_trend',
@@ -151,7 +151,7 @@ class HotelController extends Controller
         /* Khách Sạn Xung Quanh */
         $area_hotel = Hotel::where('area_id', $hotel->area_id)->wherenotin('hotel_id', [$hotel->hotel_id])->get();
 
-        $evaluate_hotel = Evaluate::with(['room.typeroom'])->where('hotel_id', $request->hotel_id)->orderBy('evaluate_id', 'DESC')->get();
+        $evaluate_hotel = Evaluate::with(['room.typeroom'])->where('hotel_id', $request->hotel_id)->orderBy('evaluate_id', 'DESC')->take(5)->get();
         // foreach ($evaluate_hotel as $key => $evaluate) {
         //     dump($evaluate->room->room_name ?? "aa " . $evaluate->room_id);
         // }

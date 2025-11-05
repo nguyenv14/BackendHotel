@@ -603,9 +603,9 @@
                                             <span>{{ number_format($price_sale,0,',','.') }}</span>
                                         </div>
                                         @php
-                                            // $coupon_rd = array_rand($coupons->toarray());
+                                            $coupon_rd = array_rand($coupons->toarray());
                                         @endphp
-                                        {{-- <div class="flashsalehotel_text-box-price-three bordernhay">
+                                       <div class="flashsalehotel_text-box-price-three bordernhay">
                                             <div class="flashsalehotel_text-box-price-three-l">
                                                 <div class="flashsalehotel_text-box-price-three-l-1"><span>Mã : </span>
                                                 </div>
@@ -620,7 +620,7 @@
                                             <div class="flashsalehotel_text-box-price-three-r chunhay">
                                                 <span>{{ number_format($price_sale_end,0,',','.') }}đ</span>
                                             </div>
-                                        </div> --}}
+                                        </div> 
                                     </div>
                                 </div>
                             </div>
