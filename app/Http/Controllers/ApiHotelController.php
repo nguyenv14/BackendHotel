@@ -9,30 +9,152 @@ use App\Models\Hotel;
 use App\Models\Room;
 use App\Models\ServiceCharge;
 use App\Models\TypeRoom;
+use App\Models\Coupon;
+use App\Models\OrderDetails;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ApiHotelController extends Controller
 {
-    public function getFlashSaleHotels(Request $request)
+    public function getFlashSaleHotels()
     {
-        $result = Hotel::join('tbl_room', 'tbl_hotel.hotel_id', '=', 'tbl_room.hotel_id')
-            ->join('tbl_area', 'tbl_hotel.area_id', '=', 'tbl_area.area_id')
-            ->join('tbl_type_room', 'tbl_type_room.room_id', '=', 'tbl_room.room_id')
-            ->where('tbl_type_room.type_room_condition', 1)
-            ->orderBy('tbl_type_room.type_room_price_sale', 'DESC')
-            ->select('tbl_hotel.*', 'tbl_area.area_name', 'tbl_type_room.type_room_price_sale')
-            ->get()
-            ->unique('hotel_name')   
-            ->take(4)                
-            ->values();             
+        $TimeNow = Carbon::now('Asia/Ho_Chi_Minh');
+
+        $coupons = Coupon::inRandomOrder()
+            ->where('coupon_end_date', '>=', $TimeNow)
+            ->where('coupon_start_date', '<=', $TimeNow)
+            ->where('coupon_qty_code', '>', 0)
+            ->get();
+
+        // Lấy danh sách hotel flashsale
+        $hotel_flashsale = Hotel::with(['area'])
+            ->where('hotel_status', 1)
+            ->take(5)->get();
+
+        if ($hotel_flashsale->isEmpty()) {
+            return response()->json([
+                'status' => 'fail',
+                'message' => 'Không có khách sạn flash sale nào khả dụng!'
+            ], 404);
+        }
+
+        $data = [];
+
+        foreach ($hotel_flashsale as $hotel) {
+            // 🔹 Lấy giá phòng thấp nhất của khách sạn
+            $roomPrices = \App\Models\TypeRoom::whereHas('room', function($query) use ($hotel) {
+                $query->where('hotel_id', $hotel->hotel_id);
+            })->get(['type_room_price', 'type_room_price_sale', 'type_room_condition']);
+
+            if ($roomPrices->isEmpty()) {
+                continue; // bỏ qua khách sạn chưa có phòng
+            }
+
+            // 🔹 Lấy giá gốc thấp nhất
+            $basePrice = $roomPrices->min('type_room_price');
+            $room = $roomPrices->firstWhere('type_room_price', $basePrice);
+
+            // 🔹 Tính giá sale của phòng
+            $price_sale = $basePrice;
+            if ($room && $room->type_room_condition == 1) {
+                $price_sale = $basePrice - ($basePrice * $room->type_room_price_sale / 100);
+            }
+
+            // 🔹 Lấy ngẫu nhiên 1 coupon (nếu có)
+            $coupon = $coupons->isNotEmpty() ? $coupons->random(1)->first() : null;
+            $coupon_name = $coupon->coupon_name_code ?? null;
+            $coupon_discount = $coupon->coupon_price_sale ?? 0;
+
+            // 🔹 Tính giá cuối sau coupon
+            $price_sale_end = $price_sale - ($price_sale * $coupon_discount / 100);
+
+            // 🔹 Tính điểm đánh giá
+            $evaluate_data = $this->evaluateHotel($hotel->hotel_id);
+
+            // 🔹 Tính thời gian đặt gần nhất
+            $order_time_text = $this->orderTime($hotel->hotel_id);
+
+            $data[] = [
+                'hotel_id' => $hotel->hotel_id,
+                'hotel_name' => $hotel->hotel_name,
+                'hotel_rank' => $hotel->hotel_rank,
+                'hotel_image' => asset('public/fontend/assets/img/hotel/' . $hotel->hotel_image),
+                'hotel_area' => $hotel->area->area_name ?? null,
+                'hotel_price' => (int)$basePrice,
+                'hotel_price_sale' => (int)$price_sale,
+                'coupon_code' => $coupon_name,
+                'coupon_discount' => $coupon_discount,
+                'hotel_price_final' => (int)$price_sale_end,
+                'evaluate' => $evaluate_data,
+                'order_time' => $order_time_text
+            ];
+        }
+
+        // 🔹 Nếu không có khách sạn nào hợp lệ
+        if (empty($data)) {
+            return response()->json([
+                'status' => 'fail',
+                'message' => 'Không tìm thấy khách sạn có phòng hoặc khuyến mãi hợp lệ!'
+            ], 404);
+        }
 
         return response()->json([
             'status_code' => 200,
             'message' => 'Thành công!',
-            'data' => $result,
-        ]);
+            'count' => count($data),
+            'data' => $data
+        ], 200);
+    }
 
+    private function evaluateHotel($hotel_id)
+    {
+        $evaluate = Evaluate::where('hotel_id', $hotel_id)->get();
+        $count = $evaluate->count();
+
+        if ($count == 0) {
+            return [
+                'avg' => 0,
+                'status' => 'Chưa Có Đánh Giá',
+                'count' => 0
+            ];
+        }
+
+        $avg = (
+            $evaluate->avg('evaluate_loaction_point') +
+            $evaluate->avg('evaluate_service_point') +
+            $evaluate->avg('evaluate_price_point') +
+            $evaluate->avg('evaluate_sanitary_point') +
+            $evaluate->avg('evaluate_convenient_point')
+        ) / 5;
+
+        $avg = number_format($avg, 1);
+
+        if ($avg == 0) $status = 'Chưa Có Đánh Giá';
+        elseif ($avg <= 2) $status = 'Trung Bình';
+        elseif ($avg <= 3) $status = 'Tốt';
+        elseif ($avg <= 4) $status = 'Tuyệt Vời';
+        else $status = 'Xuất Sắc';
+
+        return [
+            'avg' => $avg,
+            'status' => $status,
+            'count' => $count
+        ];
+    }
+
+    private function orderTime($hotel_id)
+    {
+        Carbon::setLocale('vi');
+        $order = OrderDetails::where('hotel_id', $hotel_id)->orderby('order_details_id', 'DESC')->first();
+
+        if (!$order) {
+            return 'Chưa có đơn đặt nào';
+        }
+
+        $created = Carbon::create($order->created_at, 'Asia/Ho_Chi_Minh');
+        $now = Carbon::now('Asia/Ho_Chi_Minh');
+        return 'Vừa đặt cách đây ' . $created->diffForHumans($now);
     }
     
 
