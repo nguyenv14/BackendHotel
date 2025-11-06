@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/slides', [ApiSlideController::class, 'getSlides']);
 Route::get('/slogans', [ApiSloganController::class, 'getSlogans']);
 Route::get('/areas', [ApiAreaController::class, 'getAreas']);
-Route::get('/flashsale-hotels', [ApiHotelController::class, 'getFlashSaleHotels']);
+Route::get('/hotel/flashsales', [ApiHotelController::class, 'getFlashSaleHotels']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
