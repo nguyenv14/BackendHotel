@@ -25,11 +25,13 @@ use Illuminate\Support\Facades\Route;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
-// Trang Chủ
+
 Route::get('/slides', [ApiSlideController::class, 'getSlides']);
 Route::get('/slogans', [ApiSloganController::class, 'getSlogans']);
 Route::get('/areas', [ApiAreaController::class, 'getAreas']);
+Route::get('/hotels', [ApiHotelController::class, 'getHotels']);
 Route::get('/hotel/flashsales', [ApiHotelController::class, 'getFlashSaleHotels']);
+Route::get('/coupons', [ApiCouponController::class, 'getCoupons']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
