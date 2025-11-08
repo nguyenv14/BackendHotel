@@ -70,7 +70,7 @@ class HotelController extends Controller
         $all_hotel = Hotel::with(['room.typeroom'])
             ->whereNotIn('hotel_id', array_merge($list_id_order, $list_id_new, $list_id_view))
             ->where('hotel_status', 1)
-            ->inRandomOrder()
+            ->inRandomOrder()->take(8)
             ->get();
 
         /** Coupon và Banner ADS */

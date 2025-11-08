@@ -5,75 +5,65 @@ use App\Models\Brand;
 use App\Models\Evaluate;
 use App\Models\GalleryHotel;
 use App\Models\GalleryRoom;
+use App\Models\OrderDetails;
 use App\Models\Hotel;
 use App\Models\Room;
 use App\Models\ServiceCharge;
 use App\Models\TypeRoom;
 use App\Models\Coupon;
-use App\Models\OrderDetails;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ApiHotelController extends Controller
 {
-    public function getFlashSaleHotels()
-    {
-        $TimeNow = Carbon::now('Asia/Ho_Chi_Minh');
 
-        $coupons = Coupon::inRandomOrder()
-            ->where('coupon_end_date', '>=', $TimeNow)
-            ->where('coupon_start_date', '<=', $TimeNow)
+    protected function getActiveCoupons()
+    {
+        $timeNow = Carbon::now('Asia/Ho_Chi_Minh');
+        return Coupon::inRandomOrder()
+            ->where('coupon_end_date', '>=', $timeNow)
+            ->where('coupon_start_date', '<=', $timeNow)
             ->where('coupon_qty_code', '>', 0)
             ->get();
+    }
 
-        // Lấy danh sách hotel flashsale
-        $hotel_flashsale = Hotel::with(['area'])
-            ->where('hotel_status', 1)
-            ->take(5)->get();
+    protected function getHotelsQuery(int $limit = 5, int $status = 1)
+    {
+        return Hotel::with(['area'])
+            ->where('hotel_status', $status)
+            ->take($limit)
+            ->get();
+    }
 
-        if ($hotel_flashsale->isEmpty()) {
-            return response()->json([
-                'status' => 'fail',
-                'message' => 'Không có khách sạn flash sale nào khả dụng!'
-            ], 404);
-        }
-
+    protected function formatHotelsData($hotels, $coupons)
+    {
         $data = [];
 
-        foreach ($hotel_flashsale as $hotel) {
-            // 🔹 Lấy giá phòng thấp nhất của khách sạn
-            $roomPrices = \App\Models\TypeRoom::whereHas('room', function($query) use ($hotel) {
+        foreach ($hotels as $hotel) {
+            // Lấy giá phòng thấp nhất
+            $roomPrices = TypeRoom::whereHas('room', function ($query) use ($hotel) {
                 $query->where('hotel_id', $hotel->hotel_id);
             })->get(['type_room_price', 'type_room_price_sale', 'type_room_condition']);
 
-            if ($roomPrices->isEmpty()) {
-                continue; // bỏ qua khách sạn chưa có phòng
-            }
+            if ($roomPrices->isEmpty()) continue;
 
-            // 🔹 Lấy giá gốc thấp nhất
             $basePrice = $roomPrices->min('type_room_price');
             $room = $roomPrices->firstWhere('type_room_price', $basePrice);
 
-            // 🔹 Tính giá sale của phòng
+            // Tính giá sale
             $price_sale = $basePrice;
             if ($room && $room->type_room_condition == 1) {
                 $price_sale = $basePrice - ($basePrice * $room->type_room_price_sale / 100);
             }
 
-            // 🔹 Lấy ngẫu nhiên 1 coupon (nếu có)
+            // Lấy coupon ngẫu nhiên nếu có
             $coupon = $coupons->isNotEmpty() ? $coupons->random(1)->first() : null;
             $coupon_name = $coupon->coupon_name_code ?? null;
             $coupon_discount = $coupon->coupon_price_sale ?? 0;
 
-            // 🔹 Tính giá cuối sau coupon
+            // Tính giá cuối cùng
             $price_sale_end = $price_sale - ($price_sale * $coupon_discount / 100);
-
-            // 🔹 Tính điểm đánh giá
-            $evaluate_data = $this->evaluateHotel($hotel->hotel_id);
-
-            // 🔹 Tính thời gian đặt gần nhất
-            $order_time_text = $this->orderTime($hotel->hotel_id);
 
             $data[] = [
                 'hotel_id' => $hotel->hotel_id,
@@ -86,16 +76,25 @@ class ApiHotelController extends Controller
                 'coupon_code' => $coupon_name,
                 'coupon_discount' => $coupon_discount,
                 'hotel_price_final' => (int)$price_sale_end,
-                'evaluate' => $evaluate_data,
-                'order_time' => $order_time_text
+                'evaluate' => $this->evaluateHotel($hotel->hotel_id),
+                'order_time' => $this->orderTime($hotel->hotel_id),
             ];
         }
 
-        // 🔹 Nếu không có khách sạn nào hợp lệ
+        return $data;
+    }
+
+    public function getHotels()
+    {
+        $coupons = $this->getActiveCoupons();
+        $hotels = $this->getHotelsQuery(12);
+
+        $data = $this->formatHotelsData($hotels, $coupons);
+
         if (empty($data)) {
             return response()->json([
                 'status' => 'fail',
-                'message' => 'Không tìm thấy khách sạn có phòng hoặc khuyến mãi hợp lệ!'
+                'message' => 'Không tìm thấy khách sạn hợp lệ!'
             ], 404);
         }
 
@@ -104,9 +103,30 @@ class ApiHotelController extends Controller
             'message' => 'Thành công!',
             'count' => count($data),
             'data' => $data
-        ], 200);
+        ]);
     }
 
+    public function getFlashSaleHotels()
+    {
+        $coupons = $this->getActiveCoupons();
+        $hotels = $this->getHotelsQuery(5);
+
+        $data = $this->formatHotelsData($hotels, $coupons);
+
+        if (empty($data)) {
+            return response()->json([
+                'status' => 'fail',
+                'message' => 'Không tìm thấy khách sạn flash sale hợp lệ!'
+            ], 404);
+        }
+
+        return response()->json([
+            'status_code' => 200,
+            'message' => 'Thành công!',
+            'count' => count($data),
+            'data' => $data
+        ]);
+    }
     private function evaluateHotel($hotel_id)
     {
         $evaluate = Evaluate::where('hotel_id', $hotel_id)->get();
@@ -120,15 +140,13 @@ class ApiHotelController extends Controller
             ];
         }
 
-        $avg = (
-            $evaluate->avg('evaluate_loaction_point') +
-            $evaluate->avg('evaluate_service_point') +
-            $evaluate->avg('evaluate_price_point') +
-            $evaluate->avg('evaluate_sanitary_point') +
-            $evaluate->avg('evaluate_convenient_point')
-        ) / 5;
+        $avg = ($evaluate->avg('evaluate_loaction_point') +
+                $evaluate->avg('evaluate_service_point') +
+                $evaluate->avg('evaluate_price_point') +
+                $evaluate->avg('evaluate_sanitary_point') +
+                $evaluate->avg('evaluate_convenient_point')) / 5;
 
-        $avg = number_format($avg, 1);
+        $avg = round($avg, 1);
 
         if ($avg == 0) $status = 'Chưa Có Đánh Giá';
         elseif ($avg <= 2) $status = 'Trung Bình';
