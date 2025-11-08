@@ -1,35 +1,21 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\Slider;
-use App\Models\Brand;
-use App\Models\Customers;
-use Illuminate\Http\Request;
+use App\Services\Api\SlideService;
 
-class ApiSlideController extends Controller{
-public function getSlides(Request $request)
+class ApiSlideController extends Controller
 {
-    $result = Slider::get();
+    private SlideService $slideService;
 
-    if ($result->count() > 0) {
-        $host = asset('public/fontend/assets/img/slider'); 
-        $data = $result->map(function ($item) use ($host) {
-            $item->slider_image = $host . '/' . $item->slider_image;
-            return $item;
-        });
+    public function __construct(SlideService $slideService)
+    {
+        $this->slideService = $slideService;
+    }
 
-        return response()->json([
-            'status_code' => 200,
-            'message' => 'Thành công!',
-            'data' => $data,
-        ]);
-    } else {
-        return response()->json([
-            'status_code' => 404,
-            'message' => 'Thất bại!',
-            'data' => null,
-        ]);
+    public function getSlides()
+    {
+        return $this->slideService->getSlides();
     }
 }
 
-}
