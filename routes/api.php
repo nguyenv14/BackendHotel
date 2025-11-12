@@ -8,10 +8,12 @@ use App\Http\Controllers\ApiCustomerController;
 use App\Http\Controllers\ApiHotelController;
 use App\Http\Controllers\ApiOrderHotelController;
 use App\Http\Controllers\ApiOrderRestaurantController;
-use App\Http\Controllers\ApiSearchController;
 use App\Http\Controllers\ApiRestaurantController;
+use App\Http\Controllers\ApiSearchController;
 use App\Http\Controllers\ApiSlideController;
 use App\Http\Controllers\ApiSloganController;
+use App\Http\Controllers\ApiVnpayController;
+use App\Http\Controllers\VnpayController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -51,7 +53,6 @@ Route::post('/login-gg', [ApiCustomerController::class, 'logInGG']);
 
 Route::post('/customer/update-customer', [ApiCustomerController::class, 'updateCustomer']);
 
-
 //Area
 Route::get('/area/get-area-list-have-hotel', [ApiAreaController::class, 'getAreaListHaveHotel']);
 
@@ -68,7 +69,6 @@ Route::get('/restaurant/restaurant-by-area', [ApiRestaurantController::class, 'g
 Route::get('/restaurant/restaurant-by-id', [ApiRestaurantController::class, 'getRestaurantById']);
 Route::post('/restaurant/get-favourite-list', [ApiRestaurantController::class, 'getRestaurantFavourite']);
 
-
 // Search
 Route::post('/search/search-all', [ApiSearchController::class, 'search']);
 Route::post('/search/filter-search', [ApiSearchController::class, 'filterSearch']);
@@ -77,25 +77,29 @@ Route::post('/search/filter-search', [ApiSearchController::class, 'filterSearch'
 Route::get('/banner/get-banner-list', [ApiBannerController::class, 'getBannerList']);
 
 //Order
-Route::get('/order/get-order-list-by-status',  [ApiOrderHotelController::class, 'getOrderListByCustomerId']);
+Route::get('/order/get-order-list-by-status', [ApiOrderHotelController::class, 'getOrderListByCustomerId']);
 
-Route::post('/order/cancel-order-by-customer',  [ApiOrderHotelController::class, 'cancelOrderByCustomer']);
+Route::post('/order/cancel-order-by-customer', [ApiOrderHotelController::class, 'cancelOrderByCustomer']);
 
 Route::post('/order/cancel-order-restaurant-by-customer', [ApiOrderRestaurantController::class, 'cancelOrderByCustomer']);
 
-Route::post('/order/evaluate-customer',  [ApiOrderHotelController::class, 'evaluateCustomer']);
+Route::post('/order/evaluate-customer', [ApiOrderHotelController::class, 'evaluateCustomer']);
 
-Route::get('/order/get-order-restaurant-list-by-status',  [ApiOrderRestaurantController::class, 'getOrderListByCustomerId']);
-
+Route::get('/order/get-order-restaurant-list-by-status', [ApiOrderRestaurantController::class, 'getOrderListByCustomerId']);
 
 // Coupon
-Route::get('/coupon/get-coupon',  [ApiCouponController::class, 'getCoupons']);
-
+Route::get('/coupon/get-coupon', [ApiCouponController::class, 'getCoupons']);
 
 // checkOut
-Route::post('/order/checkout',  [ApiCheckoutController::class, 'orderRoom']);
-Route::post('/order/checkout-restaurant',  [ApiCheckoutController::class, 'orderRestaurant']);
-
+Route::post('/order/checkout', [ApiCheckoutController::class, 'orderRoom']);
+Route::post('/order/checkout-restaurant', [ApiCheckoutController::class, 'orderRestaurant']);
 
 // Brand
 Route::get('/brand/get-brand', [ApiSearchController::class, 'getBrand']);
+
+// Payment - VNPAY
+Route::post('/payment/vnpay/create', [ApiVnpayController::class, 'createPayment']);
+Route::get('/payment/vnpay/return', [ApiVnpayController::class, 'handleReturn'])->name('api.payment.vnpay.return');
+Route::match(['get', 'post'], '/payment/vnpay/ipn', [ApiVnpayController::class, 'handleIpn'])->name('api.payment.vnpay.ipn');
+Route::get('vnpay-payment-callback', [ApiVnpayController::class, 'vnpayPaymentCallback'])->name('api.payment.vnpay.callback');
+Route::post('/vnpay-ipn', [VnpayController::class, 'ipn']);
