@@ -688,7 +688,7 @@
                         data-id="{{ $hotel->hotel_id }} " data-name="{{ $hotel->hotel_name }}"
                         data-star=" @for ($i = 0; $i < $hotel->hotel_rank; $i++) <i class='fa-solid fa-star'></i> @endfor"
                         data-area=" Quận {{ $hotel->area->area_name }}"
-                        data-url_image="{{ asset('public/fontend/assets/img/hotel/' . $hotel->hotel_image) }}">
+                        data-url_image="{{ $hotel->hotel_image }}">
                         <div class="trendinghotel_boxcontent item">
                             <div class="trendinghotel_boxcontent_img_text">
                                 <div class="trendinghotel_img trendinghotel_img_new_{{ $key + 1 }}">

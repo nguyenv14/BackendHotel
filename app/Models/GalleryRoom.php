@@ -17,9 +17,14 @@ class GalleryRoom extends Model
         return $this->belongsTo('App\Models\Room', 'room_id');
     }
 
+    public function getRoomName()
+    {
+        return preg_replace('/\s+/', '', $this->room->room_name);
+    }
+
     public function getGalleryRoomImageAttribute()
     {
-        return $this->attributes['gallery_room_image'] ? asset('public/uploads/gallery_room/' . $this->attributes['gallery_room_image']) : null;
+        return $this->attributes['gallery_room_image'] ? asset('public/fontend/assets/img/hotel/room/gallery_' . $this->getRoomName() . '/' . $this->attributes['gallery_room_image']) : null;
     }
 
 }

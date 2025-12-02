@@ -646,10 +646,6 @@
                     <div class="chooseroomsbox-boxcontent-bottom-box">
                         <div class="chooseroomsbox-boxcontent-bottom-img-top">
 
-                            @php
-                                $folder_gallary_room = preg_replace('/\s+/', '', $suggested_room->room_name);
-                            @endphp
-
                             <div class="chooseroomsbox-boxcontent-bottom-img">
 
                                 {{-- Lấy Ra Cái Ảnh To --}}
@@ -658,12 +654,12 @@
                                         <div class="chooseroomsbox-boxcontent-bottom-img-item">
                                             <img width="200px" height="151px"
                                                 style=" border-radius: 8px 8px 0 0;object-fit: cover;"
-                                                src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                src='{{ $gallary_room[$i]->gallery_room_image }}'
                                                 alt="">
                                             <div class="hoverimg-chooser-imgbig">
                                                 <img width="459px" height="310px"
                                                     style=" border-radius: 8px 8px 0 0;object-fit: cover;"
-                                                    src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                    src='{{ $gallary_room[$i]->gallery_room_image}}'
                                                     alt="">
                                             </div>
                                         </div>
@@ -679,12 +675,12 @@
                                         <div class="chooseroomsbox-boxcontent-bottom-img-item">
                                             <img width="66px" height="49px"
                                                 style="object-fit: cover; border-radius: 4px;padding-left: 2px;"
-                                                src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                src='{{ $gallary_room[$i]->gallery_room_image }}'
                                                 alt="">
                                             <div class="hoverimg-chooser">
                                                 <img width="459px" height="310px"
                                                     style=" border-radius: 8px 8px 0 0;object-fit: cover;"
-                                                    src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                    src='{{ $gallary_room[$i]->gallery_room_image }}'
                                                     alt="">
                                             </div>
                                         </div>
@@ -752,12 +748,12 @@
                                             <div class="chooseroomsbox-boxcontent-bottom-img-item">
                                                 <img width="200px" height="151px"
                                                     style=" border-radius: 8px 8px 0 0;object-fit: cover;"
-                                                    src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                    src='{{  $gallary_room[$i]->gallery_room_image }}'
                                                     alt="">
                                                 <div class="hoverimg-chooser-imgbig">
                                                     <img width="459px" height="310px"
                                                         style=" border-radius: 8px 8px 0 0;object-fit: cover;"
-                                                        src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                        src='{{  $gallary_room[$i]->gallery_room_image }}'
                                                         alt="">
                                                 </div>
                                             </div>
@@ -772,12 +768,12 @@
                                             <div class="chooseroomsbox-boxcontent-bottom-img-item">
                                                 <img width="66px" height="49px"
                                                     style="object-fit: cover; border-radius: 4px;padding-left: 2px;"
-                                                    src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                    src='{{  $gallary_room[$i]->gallery_room_image }}'
                                                     alt="">
                                                 <div class="hoverimg-chooser">
                                                     <img width="459px" height="310px"
                                                         style=" border-radius: 8px 8px 0 0;object-fit: cover;"
-                                                        src='{{ URL('public/fontend/assets/img/hotel/room/gallery_' . $folder_gallary_room . '/' . $gallary_room[$i]->gallery_room_image) }}'
+                                                        src='{{  $gallary_room[$i]->gallery_room_image }}'
                                                         alt="">
                                                 </div>
                                             </div>

@@ -24,7 +24,7 @@ class Hotel extends Model
 
     public function getHotelImageAttribute()
     {
-        return $this->attributes['hotel_image'] ? asset('public/uploads/hotel/' . $this->attributes['hotel_image']) : null;
+        return $this->attributes['hotel_image'] ? asset('public/fontend/assets/img/hotel/' . $this->attributes['hotel_image']) : null;
     }
 
     public function brand()

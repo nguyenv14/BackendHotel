@@ -570,7 +570,7 @@
                             <div class="flashsalehotel_boxcontent_img_text">
                                 <div class="flashsalehotel_img-box">
                                     <img class="flashsalehotel_img" width="284px" height="160px"
-                                        style="object-fit: cover;" src="{{ asset('public/fontend/assets/img/hotel/' . $hotel->hotel_image) }}"
+                                        style="object-fit: cover;" src="{{ $hotel->hotel_image }}"
                                         alt="">
                                 </div>
                                 <div class="flashsalehotel_text">
