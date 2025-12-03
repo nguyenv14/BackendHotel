@@ -32,10 +32,17 @@ Route::get('/areas', [ApiAreaController::class, 'getAreas']);
 Route::get('/hotels', [ApiHotelController::class, 'getHotels']);
 Route::get('/hotel/flashsales', [ApiHotelController::class, 'getFlashSaleHotels']);
 Route::get('/coupons', [ApiCouponController::class, 'getCoupons']);
+Route::get('/hotels/{hotel_id}/evaluations', [ApiHotelController::class, 'getEvaluateHotelByID']);
+Route::get('/hotels/{hotel_id}/details', [ApiHotelController::class, 'getDetailsHotelByID']);
+Route::get('/hotels/{hotel_id}/rooms', [ApiHotelController::class, 'getRoomHotelByID']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+
+
+
 
 Route::post('/login', [App\Http\Controllers\ApiAuthController::class, 'login']);
 Route::post('/logout', [App\Http\Controllers\ApiAuthController::class, 'logout'])->middleware('auth:api');

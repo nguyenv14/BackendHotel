@@ -14,9 +14,65 @@ use App\Models\Coupon;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Responses\ApiResponse;
 
-class ApiHotelController extends Controller
+class ApiHotelController extends Controller {
+    
+ public function getRoomHotelByID($hotel_id)
 {
+    $rooms = Room::with(['typesroom', 'galleriesroom'])
+        ->where('hotel_id', $hotel_id)
+        ->get();
+    return ApiResponse::success($rooms);
+}   
+public function getDetailsHotelByID($hotel_id)
+{
+    // Lấy thông tin khách sạn
+    $hotel = Hotel::where('hotel_id', $hotel_id)->first();
+
+    if (!$hotel) {
+        return ApiResponse::error("Không tìm thấy khách sạn", 404);
+    }
+
+    $folder = preg_replace('/\s+/', '', $hotel->hotel_name);
+    $host = asset('public/fontend/assets/img/hotel/gallery_' . $folder);
+
+    // Lấy video của khách sạn (type = 2)
+    $video = GalleryHotel::where('hotel_id', $hotel_id)
+        ->where('gallery_hotel_type', 2)
+        ->first();
+    if ($video) {
+        $video->gallery_hotel_image = $host . '/' . $video->gallery_hotel_image;
+    }       
+    // Lấy danh sách hình ảnh của khách sạn (type = 1)
+    $images_hotel = GalleryHotel::where('hotel_id', $hotel_id)
+        ->where('gallery_hotel_type', 1)
+        ->get();
+    $images_hotel = $images_hotel->map(function ($item) use ($host) {
+        $item->gallery_hotel_image = $host . '/' . $item->gallery_hotel_image;
+        return $item;
+    });
+    $evaluate = $this->evaluateHotel($hotel_id);
+
+    $data = [
+        'hotel' => $hotel,
+        'video' => $video,
+        'images' => $images_hotel,
+        'evaluate' => $evaluate,
+    ];
+
+    return ApiResponse::success($data,);
+}
+
+    public function getEvaluateHotelByID($hotel_id)
+    {
+        $evaluate_hotel = Evaluate::with(['room.typeroom'])
+            ->where('hotel_id', $hotel_id)
+            ->orderBy('evaluate_id', 'DESC')
+            ->take(5)
+            ->get();
+        return ApiResponse::success($evaluate_hotel);
+    }
 
     protected function getActiveCoupons()
     {
