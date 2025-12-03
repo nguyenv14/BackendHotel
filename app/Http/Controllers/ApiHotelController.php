@@ -14,6 +14,23 @@ class ApiHotelController extends Controller
         $this->hotelService = $hotelService;
     }
 
+    public function getRoomHotelByID($hotel_id)
+    {
+        return $this->hotelService->getRoomHotelByID((int) $hotel_id);
+    } 
+
+    public function getDetailsHotelByID($hotel_id)
+    {
+        return $this->hotelService->getDetailsHotelByID((int) $hotel_id);
+    }
+
+    public function getEvaluateHotelByID($hotel_id)
+    {
+        return $this->hotelService->getEvaluateHotelByID((int) $hotel_id);
+    }
+
+
+
     public function getHotels()
     {
         return $this->hotelService->getHotels();

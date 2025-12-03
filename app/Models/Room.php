@@ -31,6 +31,12 @@ class Room extends Model
     public function galleryroom(){
         return $this->belongsTo('App\Models\GalleryRoom', 'room_id' , 'room_id');
     }
+    public function typesroom(){
+        return $this->hasMany('App\Models\TypeRoom', 'room_id' , 'room_id');
+    }
+    public function galleriesroom(){
+        return $this->hasMany('App\Models\GalleryRoom', 'room_id' , 'room_id');
+    }
 
     public function loading_type_room($room_id){
 
