@@ -20,11 +20,11 @@ class ManagerHotelController extends Controller
         $this->hotelRepo = $hotelRepo;
     }
     public function list_items(){
-        $items = $this->hotelRepo->getAllByPaginate(3);
+        $items = $this->hotelRepo->getAllByPaginate(10);
         return view('admin.Hotel.all_hotel')->with(compact('items'));
     }
     public function load_items(){
-        $items = $this->hotelRepo->getAllByPaginate(3);
+        $items = $this->hotelRepo->getAllByPaginate(10);
         $output =  $this->hotelRepo->output_item($items);
         echo $output;
     }

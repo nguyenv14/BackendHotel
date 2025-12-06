@@ -202,7 +202,7 @@ class HotelService
             ->get();
     }
 
-    private function formatHotelsData(Collection $hotels, Collection $coupons): array
+    public function formatHotelsData(Collection $hotels, Collection $coupons): array
     {
         return $hotels->reduce(function (array $carry, Hotel $hotel) use ($coupons) {
             $roomPrices = TypeRoom::whereHas('room', fn($query) => $query->where('hotel_id', $hotel->hotel_id))
@@ -228,7 +228,7 @@ class HotelService
                 'hotel_id'          => $hotel->hotel_id,
                 'hotel_name'        => $hotel->hotel_name,
                 'hotel_rank'        => $hotel->hotel_rank,
-                'hotel_image'       => asset('public/fontend/assets/img/hotel/' . $hotel->hotel_image),
+                'hotel_image'       => $hotel->hotel_image,
                 'hotel_area'        => $hotel->area->area_name ?? null,
                 'hotel_price'       => (int) $basePrice,
                 'hotel_price_sale'  => (int) $priceSale,

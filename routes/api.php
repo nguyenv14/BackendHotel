@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AIHotelController;
 use App\Http\Controllers\ApiAreaController;
 use App\Http\Controllers\ApiBannerController;
 use App\Http\Controllers\ApiCheckoutController;
@@ -37,6 +38,11 @@ Route::get('/coupons', [ApiCouponController::class, 'getCoupons']);
 Route::get('/hotels/{hotel_id}/evaluations', [ApiHotelController::class, 'getEvaluateHotelByID']);
 Route::get('/hotels/{hotel_id}/details', [ApiHotelController::class, 'getDetailsHotelByID']);
 Route::get('/hotels/{hotel_id}/rooms', [ApiHotelController::class, 'getRoomHotelByID']);
+
+Route::prefix('/ai')->group(function () {
+    Route::get('/hotel-recommendation-popular', [AIHotelController::class, 'getHotelRecommendationPopular']);
+    Route::get('/hotel-recommendation-similar', [AIHotelController::class, 'getHotelRecommendationNew']);
+});
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

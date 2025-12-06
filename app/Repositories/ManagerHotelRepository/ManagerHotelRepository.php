@@ -208,7 +208,7 @@ class ManagerHotelRepository extends BaseRepository implements ManagerHotelRepos
 
             $output .='
             <td>'.$hotel->brand->brand_name.'</td>
-            <td><img style="object-fit: cover" width="40px" height="20px"src="'.URL('public/fontend/assets/img/hotel/'.$hotel->hotel_image).'"alt=""></td>
+            <td><img style="object-fit: cover" width="40px" height="20px"src="'.URL($hotel->hotel_image ?? 'public/fontend/assets/img/hotel/default.jpg').'"alt=""></td>
            
             <td> Quận '.$hotel->area->area_name.'</td>
             
