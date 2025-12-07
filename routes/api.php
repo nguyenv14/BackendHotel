@@ -41,8 +41,8 @@ Route::get('/hotels/{hotel_id}/rooms', [ApiHotelController::class, 'getRoomHotel
 
 Route::prefix('/ai')->group(function () {
     Route::get('/hotel-recommendation-popular', [AIHotelController::class, 'getHotelRecommendationPopular']);
-    Route::get('/hotel-recommendation-similar', [AIHotelController::class, 'getHotelRecommendationNew']);
-});
+    Route::get('/hotel-recommendation-similar/{hotel_id}', [AIHotelController::class, 'getHotelRecommendationForSimilar']);
+}); 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
