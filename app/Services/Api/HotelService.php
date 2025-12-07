@@ -28,13 +28,59 @@ class HotelService
 
     public function getEvaluateHotelByID($hotel_id)
     {
+        // Lấy 5 đánh giá mới nhất cùng quan hệ room và typeroom
         $evaluate_hotel = Evaluate::with(['room.typeroom'])
             ->where('hotel_id', $hotel_id)
             ->orderBy('evaluate_id', 'DESC')
             ->take(5)
             ->get();
-        return ApiResponse::success($evaluate_hotel);
+
+        // Chuyển đổi dữ liệu sang format reviews
+        $reviews = $evaluate_hotel->map(function($item) {
+            // Tính điểm trung bình
+            $totalPoint = $item->evaluate_loaction_point 
+                        + $item->evaluate_service_point
+                        + $item->evaluate_price_point
+                        + $item->evaluate_sanitary_point
+                        + $item->evaluate_convenient_point;
+
+            $avgPoint = number_format($totalPoint / 5, 1);
+
+            // Xác định nhãn đánh giá
+            if ($avgPoint >= 4.5) {
+                $ratingLabel = 'Tuyệt vời';
+            } elseif ($avgPoint >= 3.5) {
+                $ratingLabel = 'Tốt';
+            } elseif ($avgPoint >= 2.5) {
+                $ratingLabel = 'Trung bình';
+            } else {
+                $ratingLabel = 'Kém';
+            }
+
+
+            // Lấy tên phòng + số giường
+            $roomType = optional($item->room)->room_name;
+            if(optional($item->room->typeroom)->type_room_bed) {
+                $roomType .= ' - ' . $item->room->typeroom->type_room_bed . ' giường';
+            }
+
+            return [
+                'evaluate_id' => $item->evaluate_id,
+                'customer_id' => $item->customer_id,
+                'customer_name' =>  $item->customer_name,
+                'evaluate' => [
+                    'evaluate_title' => $item->evaluate_title,
+                    'evaluate_content' => $item->evaluate_content,
+                    'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d/m/Y') : null,
+                    'room_type' => $roomType,
+                    'rating' => $avgPoint,
+                    'rating_label' => $ratingLabel
+                ]
+            ];
+        });
+        return ApiResponse::success($reviews);
     }
+
 
     public function getDetailsHotelByID($hotel_id)
     {
@@ -377,8 +423,7 @@ class HotelService
             $avg <= 4 => 'Tuyệt Vời',
             default   => 'Xuất Sắc',
         };
-
-        return [
+        return [    
             'avg'    => $avg,
             'status' => $status,
             'count'  => $count,
