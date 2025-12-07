@@ -15,4 +15,9 @@ class AIHotelController extends Controller
   {
     return $this->aiService->getHotelRecommendationPopular();
   }
+
+  public function getHotelRecommendationForSimilar($hotel_id)
+  {
+    return $this->aiService->getHotelRecommendationForSimilar($hotel_id);
+  }
 }

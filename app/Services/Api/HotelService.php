@@ -41,12 +41,12 @@ class HotelService
         // Lấy thông tin khách sạn
         $hotel = Hotel::where('hotel_id', $hotel_id)->first();
 
-        if (!$hotel) {
+        if (! $hotel) {
             return ApiResponse::error("Không tìm thấy khách sạn", 404);
         }
 
         $folder = preg_replace('/\s+/', '', $hotel->hotel_name);
-        $host = asset('public/fontend/assets/img/hotel/gallery_' . $folder);
+        $host   = asset('public/fontend/assets/img/hotel/gallery_' . $folder);
 
         // Lấy video của khách sạn (type = 2)
         $video = GalleryHotel::where('hotel_id', $hotel_id)
@@ -54,7 +54,7 @@ class HotelService
             ->first();
         if ($video) {
             $video->gallery_hotel_image = $host . '/' . $video->gallery_hotel_image;
-        }       
+        }
         // Lấy danh sách hình ảnh của khách sạn (type = 1)
         $images_hotel = GalleryHotel::where('hotel_id', $hotel_id)
             ->where('gallery_hotel_type', 1)
@@ -66,9 +66,9 @@ class HotelService
         $evaluate = $this->evaluateHotel($hotel_id);
 
         $data = [
-            'hotel' => $hotel,
-            'video' => $video,
-            'images' => $images_hotel,
+            'hotel'    => $hotel,
+            'video'    => $video,
+            'images'   => $images_hotel,
             'evaluate' => $evaluate,
         ];
 
