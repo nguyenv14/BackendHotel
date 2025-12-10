@@ -37,4 +37,14 @@ class ApiSearchController extends Controller
     {
         return $this->searchService->masterSearch($request->all());
     }
+
+    public function getBrand()
+    {
+        return $this->searchService->getBrands();
+    }
+
+    public function getHotelTypes()
+    {
+        return $this->searchService->getHotelTypes();
+    }
 }

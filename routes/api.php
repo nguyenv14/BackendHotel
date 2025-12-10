@@ -39,6 +39,12 @@ Route::get('/hotels/{hotel_id}/evaluations', [ApiHotelController::class, 'getEva
 Route::get('/hotels/{hotel_id}/details', [ApiHotelController::class, 'getDetailsHotelByID']);
 Route::get('/hotels/{hotel_id}/rooms', [ApiHotelController::class, 'getRoomHotelByID']);
 
+Route::prefix('hotel')->group(function () {
+    Route::get('/search', [ApiSearchController::class, 'search']);
+    Route::get('master-search', [ApiSearchController::class, 'masterSearch']);
+    Route::get('/filter-search', [ApiHotelController::class, 'filterSearch']);
+});
+
 Route::prefix('/ai')->group(function () {
     Route::get('/hotel-recommendation-popular', [AIHotelController::class, 'getHotelRecommendationPopular']);
     Route::get('/hotel-recommendation-similar/{hotel_id}', [AIHotelController::class, 'getHotelRecommendationForSimilar']);
@@ -105,6 +111,8 @@ Route::post('/order/checkout-restaurant', [ApiCheckoutController::class, 'orderR
 
 // Brand
 Route::get('/brand/get-brand', [ApiSearchController::class, 'getBrand']);
+Route::get('/brands', [ApiSearchController::class, 'getBrand']);
+Route::get('/hotel-types', [ApiSearchController::class, 'getHotelTypes']);
 
 // Payment - VNPAY
 Route::post('/payment/vnpay/create', [ApiVnpayController::class, 'createPayment']);
