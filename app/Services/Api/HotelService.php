@@ -229,7 +229,7 @@ class HotelService
         return ApiResponse::success($this->formatHotelDetailsData($hotels), 'Thành công!');
     }
 
-    private function getActiveCoupons(): Collection
+    public function getActiveCoupons(): Collection
     {
         $timeNow = Carbon::now('Asia/Ho_Chi_Minh');
 
@@ -267,7 +267,7 @@ class HotelService
             }
 
             $coupon         = $coupons->isNotEmpty() ? $coupons->random() : null;
-            $couponDiscount = $coupon->coupon_price_sale ?? 0;
+            $couponDiscount = $coupon ? ($coupon->coupon_price_sale ?? 0) : 0;
             $priceSaleEnd   = $priceSale - ($priceSale * $couponDiscount / 100);
 
             $carry[] = [
@@ -278,7 +278,7 @@ class HotelService
                 'hotel_area'        => $hotel->area->area_name ?? null,
                 'hotel_price'       => (int) $basePrice,
                 'hotel_price_sale'  => (int) $priceSale,
-                'coupon_code'       => $coupon->coupon_name_code ?? null,
+                'coupon_code'       => $coupon ? ($coupon->coupon_name_code ?? null) : null,
                 'coupon_discount'   => $couponDiscount,
                 'hotel_price_final' => (int) $priceSaleEnd,
                 'evaluate'          => $this->evaluateHotel($hotel->hotel_id),
@@ -393,7 +393,7 @@ class HotelService
         return $recommendedHotels->unique('hotel_id')->take($limit)->pluck('hotel_id');
     }
 
-    private function evaluateHotel(int $hotelId): array
+    public function evaluateHotel(int $hotelId): array
     {
         $evaluate = Evaluate::where('hotel_id', $hotelId)->get();
         $count    = $evaluate->count();
@@ -430,7 +430,7 @@ class HotelService
         ];
     }
 
-    private function orderTime(int $hotelId): string
+    public function orderTime(int $hotelId): string
     {
         Carbon::setLocale('vi');
         $order = OrderDetails::where('hotel_id', $hotelId)->orderBy('order_details_id', 'DESC')->first();
