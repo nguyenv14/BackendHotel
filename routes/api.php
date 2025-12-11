@@ -43,6 +43,7 @@ Route::prefix('hotel')->group(function () {
     Route::get('/search', [ApiSearchController::class, 'search']);
     Route::get('master-search', [ApiSearchController::class, 'masterSearch']);
     Route::get('/filter-search', [ApiHotelController::class, 'filterSearch']);
+    Route::post('/semantic-search', [ApiHotelController::class, 'semanticSearch']);
 });
 
 Route::prefix('/ai')->group(function () {

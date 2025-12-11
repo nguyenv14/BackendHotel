@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class HotelService
 {
@@ -508,5 +509,86 @@ class HotelService
                 'updated_at'         => $hotel->updated_at,
             ];
         })->all();
+    }
+
+    /**
+     * Process and format semantic search results
+     * 
+     * @param array $searchResults Raw search results from AI service
+     * @param string $query Original search query
+     * @return JsonResponse
+     */
+    public function processSemanticSearchResults(array $searchResults, string $query): JsonResponse
+    {
+        // If no results from semantic search
+        if (empty($searchResults)) {
+            Log::warning('Semantic search returned no results', ['query' => $query]);
+            
+            return ApiResponse::success([
+                'query' => $query,
+                'count' => 0,
+                'items' => []
+            ], 'Không tìm thấy kết quả phù hợp. Vui lòng thử lại với từ khóa khác.');
+        }
+
+        try {
+            // Extract hotel IDs from search results
+            $hotelIds = collect($searchResults)
+                ->pluck('hotel_id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($hotelIds)) {
+                return ApiResponse::success([
+                    'query' => $query,
+                    'count' => 0,
+                    'items' => []
+                ], 'Không tìm thấy kết quả phù hợp.');
+            }
+
+            // Fetch full hotel data from database
+            $hotels = Hotel::with(['area'])
+                ->whereIn('hotel_id', $hotelIds)
+                ->get();
+
+            // Maintain order from search results
+            $hotels = $hotels->sortBy(function ($hotel) use ($hotelIds) {
+                return array_search($hotel->hotel_id, $hotelIds);
+            })->values();
+
+            // Get active coupons
+            $coupons = $this->getActiveCoupons();
+
+            // Format hotels data using the same format as other methods
+            $formattedData = $this->formatHotelsData($hotels, $coupons);
+
+            // Add relevance scores from search results
+            $relevanceScores = collect($searchResults)
+                ->keyBy('hotel_id')
+                ->map(fn($result) => $result['relevance_score'] ?? 0)
+                ->toArray();
+
+            // Merge relevance scores into formatted data
+            $formattedData = collect($formattedData)->map(function ($item) use ($relevanceScores) {
+                $item['relevance_score'] = $relevanceScores[$item['hotel_id']] ?? 0;
+                return $item;
+            })->values()->all();
+
+            return ApiResponse::success([
+                'count' => count($formattedData),
+                'items' => $formattedData
+            ], 'Tìm kiếm thành công');
+
+        } catch (\Exception $e) {
+            Log::error('Semantic search processing error', [
+                'query' => $query,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return ApiResponse::error('Lỗi khi xử lý kết quả tìm kiếm: ' . $e->getMessage(), 500);
+        }
     }
 }
