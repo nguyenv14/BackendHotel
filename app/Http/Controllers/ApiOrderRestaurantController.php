@@ -10,10 +10,17 @@ use App\Models\Orderer;
 use App\Models\Payment;
 use App\Models\Restaurant;
 use App\Models\ServiceCharge;
+use App\Services\Api\OrderService;
 use Illuminate\Http\Request;
 
 class ApiOrderRestaurantController extends Controller
 {
+    private OrderService $orderService;
+
+    public function __construct(OrderService $orderService)
+    {
+        $this->orderService = $orderService;
+    }
     public function getOrderListByCustomerId(Request $request){
         $orderer = Orderer::where('customer_id', $request->customer_id)->get('orderer_id')->toArray();
         $list_id_orderer = array();
@@ -205,5 +212,40 @@ class ApiOrderRestaurantController extends Controller
             "updated_at" => $dt->updated_at,
         );
         return $data;
+    }
+
+    /**
+     * List restaurant orders with search, filters, and pagination
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function listOrders(Request $request)
+    {
+        $filters = $request->all();
+        $filters['order_type'] = 1; // Restaurant orders
+        return $this->orderService->listOrders($filters);
+    }
+
+    /**
+     * Cancel restaurant order
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function cancelOrder(Request $request)
+    {
+        return $this->orderService->cancelOrder($request->all());
+    }
+
+    /**
+     * Get restaurant order detail
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getOrderDetail(Request $request)
+    {
+        return $this->orderService->getOrderDetail($request->all());
     }
 }

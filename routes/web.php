@@ -38,7 +38,7 @@ Route::controller(AuthController::class)->group(function () {
     Route::group(['prefix' => 'admin/auth'], function () {
         Route::GET('/register', 'show_register')->middleware('admin.roles');
         Route::POST('/registration-processing', 'registration_processing')->middleware('admin.roles');
-        Route::GET('/login', 'show_login');
+        Route::GET('/login', 'show_login')->name('login');
         Route::POST('/login-processing', 'login_processing');
         Route::GET('/logout', 'logout');
     });

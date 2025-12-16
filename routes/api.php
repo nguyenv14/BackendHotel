@@ -46,6 +46,17 @@ Route::prefix('hotel')->group(function () {
     Route::post('/semantic-search', [ApiHotelController::class, 'semanticSearch']);
 });
 
+Route::prefix('order')->group(function () {
+    Route::get('/list', [ApiOrderHotelController::class, 'listOrders'])->middleware('auth:api');
+    Route::get('/details', [ApiOrderHotelController::class, 'getOrderDetail'])->middleware('auth:api');
+    Route::post('/cancel', [ApiOrderHotelController::class, 'cancelOrder'])->middleware('auth:api');
+    Route::put('/status', [ApiOrderHotelController::class, 'updateOrderStatus'])->middleware('auth:api');
+    Route::get('/statistics', [ApiOrderHotelController::class, 'getOrderStatistics'])->middleware('auth:api');
+    
+    // checkOut
+    Route::post('/checkout', [ApiCheckoutController::class, 'orderRoom'])->middleware('auth:api');  
+});
+
 Route::prefix('/ai')->group(function () {
     Route::get('/hotel-recommendation-popular', [AIHotelController::class, 'getHotelRecommendationPopular']);
     Route::get('/hotel-recommendation-similar/{hotel_id}', [AIHotelController::class, 'getHotelRecommendationForSimilar']);
@@ -95,6 +106,7 @@ Route::get('/banner/get-banner-list', [ApiBannerController::class, 'getBannerLis
 //Order
 Route::get('/order/get-order-list-by-status', [ApiOrderHotelController::class, 'getOrderListByCustomerId']);
 
+
 Route::post('/order/cancel-order-by-customer', [ApiOrderHotelController::class, 'cancelOrderByCustomer']);
 
 Route::post('/order/cancel-order-restaurant-by-customer', [ApiOrderRestaurantController::class, 'cancelOrderByCustomer']);
@@ -106,8 +118,7 @@ Route::get('/order/get-order-restaurant-list-by-status', [ApiOrderRestaurantCont
 // Coupon
 Route::get('/coupon/get-coupon', [ApiCouponController::class, 'getCoupons']);
 
-// checkOut
-Route::post('/order/checkout', [ApiCheckoutController::class, 'orderRoom']);
+
 Route::post('/order/checkout-restaurant', [ApiCheckoutController::class, 'orderRestaurant']);
 
 // Brand
