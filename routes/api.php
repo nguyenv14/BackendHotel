@@ -70,6 +70,7 @@ Route::post('/login', [App\Http\Controllers\ApiAuthController::class, 'login']);
 Route::post('/logout', [App\Http\Controllers\ApiAuthController::class, 'logout'])->middleware('auth:api');
 Route::get('/get-profile', [App\Http\Controllers\ApiAuthController::class, 'getProfile'])->middleware('auth:api');
 
+
 Route::get('admin/category/all-category', 'App\Http\Controllers\APICategoryProduct@all_category');
 Route::get('/get-brand', 'App\Http\Controllers\APITestController@getAPi');
 

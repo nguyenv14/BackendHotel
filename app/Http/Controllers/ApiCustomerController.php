@@ -9,12 +9,6 @@ class ApiCustomerController extends Controller{
     public function logIn(Request $request){
         $result = Customers::where('customer_password', md5($request->customer_password))->Where('customer_email', $request->customer_email)->first();
         if($result){
-            // $data[] = array(
-            //     "customer_id" => $result->customer_id,
-            //     "customer_name" => $result->customer_name,
-            //     "customer_email" => $result->customer_email,
-            //     "customer_password" => $result->customer_password,2
-            // );
             return response()->json([
                 'status_code' => 200,
                 'message' => 'Đăng nhập thành công!',
@@ -60,18 +54,9 @@ class ApiCustomerController extends Controller{
             }
         }
     }
-
-    
-
     public function createCustomer(Request $request){
         $result = Customers::Where('customer_email', $request->customer_email)->first();
         if($result){
-            // $data[] = array(
-            //     "customer_id" => $result->customer_id,
-            //     "customer_name" => $result->customer_name,
-            //     "customer_email" => $result->customer_email,
-            //     "customer_password" => $result->customer_password,2
-            // );
             return response()->json([
                 'status_code' => 405,
                 'message' => 'Email đã có người dùng!',
@@ -83,11 +68,12 @@ class ApiCustomerController extends Controller{
             $customer->customer_email = $request->customer_email;
             $customer->customer_phone = $request->customer_phone;
             $customer->customer_password = md5($request->customer_password);
+            $customer->customer_status = 1;
             $customer->save();
             return response()->json([
                 'status_code' => 200,
                 'message' => 'Thành công',
-                'data' => 1,
+                'data' => $customer,
             ]) ;
         }
     }
