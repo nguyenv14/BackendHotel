@@ -5,6 +5,8 @@ use App\Models\ConfigWeb;
 use App\Models\Brand;
 use App\Models\Customers;
 use Illuminate\Http\Request;
+use App\Http\Responses\ApiResponse;
+use Illuminate\Http\JsonResponse;
 
 class ApiSloganController extends Controller{
 public function getSlogans(Request $request)
@@ -18,18 +20,9 @@ public function getSlogans(Request $request)
                 $item->config_image = $host . '/' . $item->config_image;
                 return $item;
             });
-
-            return response()->json([
-                'status_code' => 200,
-                'message' => 'Thành công!',
-                'data' => $data,
-            ]);
+            return ApiResponse::success($data, 'Thành công!');
         } else {
-            return response()->json([
-                'status_code' => 404,
-                'message' => 'Thất bại!',
-                'data' => null,
-            ]);
+            return ApiResponse::error('Thất bại!', 404);
         }
     }
 }
