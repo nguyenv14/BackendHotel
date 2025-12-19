@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 use App\Models\Brand;
 use App\Models\Customers;
 use Illuminate\Http\Request;
+use App\Http\Responses\ApiResponse;
+use Illuminate\Http\JsonResponse;
 
 class ApiCustomerController extends Controller{
     public function logIn(Request $request){
@@ -57,11 +59,7 @@ class ApiCustomerController extends Controller{
     public function createCustomer(Request $request){
         $result = Customers::Where('customer_email', $request->customer_email)->first();
         if($result){
-            return response()->json([
-                'status_code' => 405,
-                'message' => 'Email đã có người dùng!',
-                'data' => null,
-            ]) ;
+            return ApiResponse::error('Email đã tồn tại!', 400);
         }else{
             $customer = new Customers();
             $customer->customer_name = $request->customer_name;
@@ -70,11 +68,7 @@ class ApiCustomerController extends Controller{
             $customer->customer_password = md5($request->customer_password);
             $customer->customer_status = 1;
             $customer->save();
-            return response()->json([
-                'status_code' => 200,
-                'message' => 'Thành công',
-                'data' => $customer,
-            ]) ;
+            return ApiResponse::success($customer, 'Thành công!');
         }
     }
 
