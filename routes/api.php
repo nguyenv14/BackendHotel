@@ -38,6 +38,7 @@ Route::get('/coupons', [ApiCouponController::class, 'getCoupons']);
 Route::get('/hotels/{hotel_id}/evaluations', [ApiHotelController::class, 'getEvaluateHotelByID']);
 Route::get('/hotels/{hotel_id}/details', [ApiHotelController::class, 'getDetailsHotelByID']);
 Route::get('/hotels/{hotel_id}/rooms', [ApiHotelController::class, 'getRoomHotelByID']);
+Route::get('/hotels/payment/{typeroom_id}', [ApiCheckoutController::class, 'getTypeRoomByID']);
 
 Route::prefix('hotel')->group(function () {
     Route::get('/search', [ApiSearchController::class, 'search']);

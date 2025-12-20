@@ -427,4 +427,16 @@ class CheckoutService
     {
         return 'MYHOTEL' . Carbon::now()->format('YmdHis');
     }
+    public function getTypeRoomByID($typeroom_id)
+    {
+        $typeRoom = TypeRoom::with([
+            'room.hotel','room.galleryroom'
+        ])->where('type_room_id', $typeroom_id)->first();
+
+        if (!$typeRoom) {
+            return ApiResponse::error('Không tìm thấy loại phòng!', 404);
+        }
+
+        return ApiResponse::success($typeRoom, 'Thành công!');
+    }
 }
