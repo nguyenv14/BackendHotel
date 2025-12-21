@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Api\AIService;
+use Illuminate\Http\Request;
 
 class AIHotelController extends Controller
 {
@@ -19,5 +20,9 @@ class AIHotelController extends Controller
   public function getHotelRecommendationForSimilar($hotel_id)
   {
     return $this->aiService->getHotelRecommendationForSimilar($hotel_id);
+  }
+
+  public function chatbotHotel(Request $request){
+    return $this->aiService->chatbotHotel($request->all());
   }
 }

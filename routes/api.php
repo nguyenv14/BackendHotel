@@ -60,6 +60,7 @@ Route::prefix('order')->group(function () {
 Route::prefix('/ai')->group(function () {
     Route::get('/hotel-recommendation-popular', [AIHotelController::class, 'getHotelRecommendationPopular']);
     Route::get('/hotel-recommendation-similar/{hotel_id}', [AIHotelController::class, 'getHotelRecommendationForSimilar']);
+    Route::post('/chatbot', [AIHotelController::class, 'chatbotHotel']);
 }); 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

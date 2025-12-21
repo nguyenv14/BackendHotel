@@ -54,6 +54,8 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
             Route::GET('/chart-statistical', [DashboardController::class, 'chart_statistical']);
             Route::GET('/chart-visitors', [DashboardController::class, 'chart_visitors']);
             Route::GET('/statistical', [DashboardController::class, 'statistical']);
+            Route::GET('/top-hotels-by-orders', [DashboardController::class, 'top_hotels_by_orders']);
+            Route::GET('/top-customers-by-orders', [DashboardController::class, 'top_customers_by_orders']);
         });
     });
 
@@ -221,6 +223,8 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
                 Route::GET('/', 'index');
                 Route::GET('/edit-hotel', 'edit_item')->name('edit-hotel');
                 Route::POST('/update-hotel', 'update_item');
+                Route::GET('/dashboard/revenue-by-month', [ManagerHotelController::class, 'hotel_revenue_by_month']);
+                Route::GET('/dashboard/top-customers', [ManagerHotelController::class, 'hotel_top_customers']);
 
                 Route::controller(StaffController::class)->group(function () {
                     Route::group(['prefix' => 'staff'], function () {
