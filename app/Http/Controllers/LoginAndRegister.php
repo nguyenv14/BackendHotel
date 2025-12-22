@@ -23,7 +23,7 @@ class LoginAndRegister extends Controller
         $data = $request->validate([
             'customer_email' => 'required', /* Nghiên cứu thêm validate của lava có thể truyền vào |string|min5|max15 để very */
             'customer_password' => 'required',
-            'g-recaptcha-response' => new Captcha(), //dòng kiểm tra Captcha
+            // 'g-recaptcha-response' => new Captcha(), //dòng kiểm tra Captcha
         ]);
         $Email = $data['customer_email'];
         $Password = $data['customer_password'];

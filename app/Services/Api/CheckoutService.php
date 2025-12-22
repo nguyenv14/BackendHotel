@@ -64,7 +64,14 @@ class CheckoutService
                 );
 
                 $orderer = $this->createOrderer($customer, $typeRoom, $payload);
-                $payment = $this->createPayment();
+                
+                // Tạo payment dựa trên payment_method
+                $paymentMethod = $payload['payment_method'] ?? 'bank-transfer';
+                if (in_array($paymentMethod, ['blockchain', 'metamask'])) {
+                    $payment = $this->createBlockchainPayment($payload);
+                } else {
+                    $payment = $this->createPayment($payload);
+                }
 
                 $orderCode = $payload['order_code'] ?? $this->generateHotelCode();
                 $orderDetail = $this->createOrderDetail(
@@ -241,11 +248,47 @@ class CheckoutService
         return $orderer;
     }
 
-    private function createPayment(): Payment
+    private function createPayment(array $payload = []): Payment
     {
         $payment = new Payment();
-        $payment->payment_method = 4;
+        
+        // Map payment_method từ string sang số
+        $paymentMethod = $payload['payment_method'] ?? 'bank-transfer';
+        $paymentMethodMap = [
+            'bank-transfer' => 1,
+            'qr-pay' => 2,
+            'vnpay' => 4,
+        ];
+        
+        $payment->payment_method = $paymentMethodMap[$paymentMethod] ?? 4; // Default: VNPay
         $payment->payment_status = 0;
+        $payment->save();
+
+        return $payment;
+    }
+
+    /**
+     * Tạo payment cho blockchain/MetaMask
+     * Lưu transaction_hash và payment_amount_eth
+     */
+    private function createBlockchainPayment(array $payload): Payment
+    {
+        $payment = new Payment();
+        
+        // Blockchain/MetaMask dùng payment_method = 5
+        $payment->payment_method = 5;
+        
+        // Lưu transaction hash nếu có
+        if (isset($payload['transaction_hash']) && !empty($payload['transaction_hash'])) {
+            $payment->transaction_hash = $payload['transaction_hash'];
+        }
+        
+        // Lưu số lượng ETH đã thanh toán nếu có
+        if (isset($payload['payment_amount_eth']) && !empty($payload['payment_amount_eth'])) {
+            $payment->payment_amount_eth = $payload['payment_amount_eth'];
+        }
+        
+        $payment->payment_status = 0; // 0 = chưa thanh toán, 1 = đã thanh toán
         $payment->save();
 
         return $payment;
@@ -397,7 +440,7 @@ class CheckoutService
 
     private function formatHotelSummary(Hotel $hotel): array
     {
-        $evaluates = Evaluate::where('hotel_id', $hotel->hotel_id)->get();
+        $evaluates = Evaluate::where('hotel_id', $hotel->hotel_id)->limit(5)->get();
         $service = ServiceCharge::where('hotel_id', $hotel->hotel_id)->first();
 
         return [
