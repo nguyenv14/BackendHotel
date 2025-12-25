@@ -8,6 +8,7 @@ use App\Models\GalleryHotel;
 use App\Models\GalleryRoom;
 use App\Models\Hotel;
 use App\Models\OrderDetails;
+use App\Models\Order;
 use App\Models\Room;
 use App\Models\ServiceCharge;
 use App\Models\TypeRoom;
@@ -19,11 +20,35 @@ use Illuminate\Support\Facades\Log;
 
 class HotelService
 {
-    public function getRoomHotelByID($hotel_id)
-    {
+    public function getRoomHotelByID(int $hotel_id,string $checkIn,string $checkOut,int $nights) {
+    $checkInDate  = Carbon::createFromFormat('d-m-Y', $checkIn)->format('Y-m-d');
+    $checkOutDate = Carbon::createFromFormat('d-m-Y', $checkOut)->format('Y-m-d');
+
+    $bookedRoomTypeCount = OrderDetails::query()
+        ->join('tbl_order', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+        ->where('tbl_order_details.hotel_id', $hotel_id)
+        ->where('start_day', '<', $checkOutDate)   
+        ->where('end_day',   '>', $checkInDate)
+        ->whereNotIn('tbl_order.order_status', [-2, -1])
+        ->groupBy('type_room_id')
+        ->select(
+            'type_room_id',
+            DB::raw('COUNT(*) as booked_count') 
+        )
+        ->get()
+        ->keyBy('type_room_id');
+
         $rooms = Room::with(['typesroom', 'galleriesroom'])
             ->where('hotel_id', $hotel_id)
             ->get();
+
+        foreach ($rooms as $room) {
+            foreach ($room->typesroom as $type) {
+                $bookedCount = $bookedRoomTypeCount[$type->type_room_id]->booked_count ?? 0;
+                $type->type_room_available_quantity = max($type->type_room_quantity - $bookedCount, 0);
+            }
+        }
+
         return ApiResponse::success($rooms);
     }
 

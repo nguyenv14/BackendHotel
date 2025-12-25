@@ -17,10 +17,14 @@ class ApiHotelController extends Controller
         $this->aiService = $aiService;
     }
 
-    public function getRoomHotelByID($hotel_id)
+    public function getRoomHotelByID(Request $request, $hotel_id)
     {
-        return $this->hotelService->getRoomHotelByID((int) $hotel_id);
-    } 
+        $checkIn = $request->input('check_in');
+        $checkOut = $request->input('check_out');
+        $nights = $request->input('nights');
+
+        return $this->hotelService->getRoomHotelByID((int) $hotel_id, $checkIn, $checkOut, (int) $nights);
+    }
 
     public function getDetailsHotelByID($hotel_id)
     {
