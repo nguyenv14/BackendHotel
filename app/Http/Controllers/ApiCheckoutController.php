@@ -26,4 +26,8 @@ class ApiCheckoutController extends Controller
     {
         return $this->checkoutService->getTypeRoomByID($typeroom_id);
     }
+    public function getMyOrders(Request $request)
+    {
+        return $this->checkoutService->getMyOrders(auth('api')->id());
+    }
 }

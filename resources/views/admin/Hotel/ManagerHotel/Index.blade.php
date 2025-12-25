@@ -46,256 +46,230 @@
                 </div>
             </div>
         </div>
+        <!-- Filter Chung Cho Tất Cả Biểu Đồ -->
+
         <div class="row">
+            <div class="col-md-12 grid-margin stretch-card">
+                <div class="card">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center gap-2" style="flex-wrap: nowrap;">
+                            <h5 class="mb-0 text-muted fw-medium me-2" style="white-space: nowrap;">Bộ Lọc Thống Kê:</h5>
+
+                            <!-- Filter Type -->
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-gradient-primary text-white d-flex align-items-center"
+                                    style="padding: 0.375rem 0.75rem;">
+                                    <i class="mdi mdi-filter me-1"></i>
+                                </span>
+                                <select id="manager_filter_type" class="form-control form-control-sm"
+                                    style="font-size: 0.875rem; min-width: 120px;">
+                                    <option value="day">Theo Ngày</option>
+                                    <option value="month" selected>Theo Tháng</option>
+                                    <option value="year">Theo Năm</option>
+                                </select>
+                            </div>
+
+                            <!-- Date Picker -->
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-gradient-primary text-white d-flex align-items-center"
+                                    style="padding: 0.375rem 0.75rem;">
+                                    <i class="mdi mdi-calendar me-1"></i>
+                                </span>
+                                <input type="date" id="manager_filter_date" class="form-control form-control-sm"
+                                    value="{{ date('Y-m-d') }}" style="font-size: 0.875rem; min-width: 160px;">
+                            </div>
+
+                            <!-- Apply Button -->
+                            <button type="button" class="btn btn-sm btn-gradient-primary px-3" onclick="loadManagerCharts()">
+                                <i class="mdi mdi-filter-variant me-1"></i> Áp Dụng
+                            </button>
+
+                            <!-- Reset Button -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary px-3" onclick="resetManagerFilter()">
+                                <i class="mdi mdi-refresh me-1"></i> Đặt Lại
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2 Biểu Đồ: Cột và Tròn -->
+        <div class="row">
+            <!-- Biểu Đồ Cột - Doanh Thu Theo Tháng -->
             <div class="col-md-7 grid-margin stretch-card">
                 <div class="card">
                     <div class="card-body">
                         <div class="clearfix">
-                            <h4 class="card-title float-left">Visit And Sales Statistics</h4>
-                            <div id="visit-sale-chart-legend"
-                                class="rounded-legend legend-horizontal legend-top-right float-right"></div>
+                            <h4 class="card-title float-left">Doanh Thu Theo Tháng</h4>
                         </div>
-                        <canvas id="visit-sale-chart" class="mt-4"></canvas>
+                        <div class="col-md-12" id="chart_revenue_by_month" style="height: 350px"></div>
                     </div>
                 </div>
             </div>
+            <!-- Biểu Đồ Tròn - Top User Đặt Phòng -->
             <div class="col-md-5 grid-margin stretch-card">
                 <div class="card">
                     <div class="card-body">
-                        <h4 class="card-title">Traffic Sources</h4>
-                        <canvas id="traffic-chart"></canvas>
-                        <div id="traffic-chart-legend" class="rounded-legend legend-vertical legend-bottom-left pt-4">
+                        <div class="clearfix">
+                            <h4 class="card-title float-left">Top User Đặt Phòng</h4>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-12 grid-margin">
-                <div class="card">
-                    <div class="card-body">
-                        <h4 class="card-title">Recent Tickets</h4>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th> Assignee </th>
-                                        <th> Subject </th>
-                                        <th> Status </th>
-                                        <th> Last Update </th>
-                                        <th> Tracking ID </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <img src="assets/images/faces/face1.jpg" class="me-2" alt="image">
-                                            David Grey
-                                        </td>
-                                        <td> Fund is not recieved </td>
-                                        <td>
-                                            <label class="badge badge-gradient-success">DONE</label>
-                                        </td>
-                                        <td> Dec 5, 2017 </td>
-                                        <td> WD-12345 </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <img src="assets/images/faces/face2.jpg" class="me-2" alt="image">
-                                            Stella Johnson
-                                        </td>
-                                        <td> High loading time </td>
-                                        <td>
-                                            <label class="badge badge-gradient-warning">PROGRESS</label>
-                                        </td>
-                                        <td> Dec 12, 2017 </td>
-                                        <td> WD-12346 </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <img src="assets/images/faces/face3.jpg" class="me-2" alt="image">
-                                            Marina Michel
-                                        </td>
-                                        <td> Website down for one week </td>
-                                        <td>
-                                            <label class="badge badge-gradient-info">ON HOLD</label>
-                                        </td>
-                                        <td> Dec 16, 2017 </td>
-                                        <td> WD-12347 </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <img src="assets/images/faces/face4.jpg" class="me-2" alt="image"> John
-                                            Doe
-                                        </td>
-                                        <td> Loosing control on server </td>
-                                        <td>
-                                            <label class="badge badge-gradient-danger">REJECTED</label>
-                                        </td>
-                                        <td> Dec 3, 2017 </td>
-                                        <td> WD-12348 </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-7 grid-margin stretch-card">
-                <div class="card">
-                    <div class="card-body">
-                        <h4 class="card-title">Project Status</h4>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th> # </th>
-                                        <th> Name </th>
-                                        <th> Due Date </th>
-                                        <th> Progress </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td> 1 </td>
-                                        <td> Herman Beck </td>
-                                        <td> May 15, 2015 </td>
-                                        <td>
-                                            <div class="progress">
-                                                <div class="progress-bar bg-gradient-success" role="progressbar"
-                                                    style="width: 25%" aria-valuenow="25" aria-valuemin="0"
-                                                    aria-valuemax="100"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td> 2 </td>
-                                        <td> Messsy Adam </td>
-                                        <td> Jul 01, 2015 </td>
-                                        <td>
-                                            <div class="progress">
-                                                <div class="progress-bar bg-gradient-danger" role="progressbar"
-                                                    style="width: 75%" aria-valuenow="75" aria-valuemin="0"
-                                                    aria-valuemax="100"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td> 3 </td>
-                                        <td> John Richards </td>
-                                        <td> Apr 12, 2015 </td>
-                                        <td>
-                                            <div class="progress">
-                                                <div class="progress-bar bg-gradient-warning" role="progressbar"
-                                                    style="width: 90%" aria-valuenow="90" aria-valuemin="0"
-                                                    aria-valuemax="100"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td> 4 </td>
-                                        <td> Peter Meggik </td>
-                                        <td> May 15, 2015 </td>
-                                        <td>
-                                            <div class="progress">
-                                                <div class="progress-bar bg-gradient-primary" role="progressbar"
-                                                    style="width: 50%" aria-valuenow="50" aria-valuemin="0"
-                                                    aria-valuemax="100"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td> 5 </td>
-                                        <td> Edward </td>
-                                        <td> May 03, 2015 </td>
-                                        <td>
-                                            <div class="progress">
-                                                <div class="progress-bar bg-gradient-danger" role="progressbar"
-                                                    style="width: 35%" aria-valuenow="35" aria-valuemin="0"
-                                                    aria-valuemax="100"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td> 5 </td>
-                                        <td> Ronald </td>
-                                        <td> Jun 05, 2015 </td>
-                                        <td>
-                                            <div class="progress">
-                                                <div class="progress-bar bg-gradient-info" role="progressbar"
-                                                    style="width: 65%" aria-valuenow="65" aria-valuemin="0"
-                                                    aria-valuemax="100"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-5 grid-margin stretch-card">
-                <div class="card">
-                    <div class="card-body">
-                        <h4 class="card-title text-white">Todo</h4>
-                        <div class="add-items d-flex">
-                            <input type="text" class="form-control todo-list-input"
-                                placeholder="What do you need to do today?">
-                            <button class="add btn btn-gradient-primary font-weight-bold todo-list-add-btn"
-                                id="add-task">Add</button>
-                        </div>
-                        <div class="list-wrapper">
-                            <ul class="d-flex flex-column-reverse todo-list todo-list-custom">
-                                <li>
-                                    <div class="form-check">
-                                        <label class="form-check-label">
-                                            <input class="checkbox" type="checkbox"> Meeting with Alisa </label>
-                                    </div>
-                                    <i class="remove mdi mdi-close-circle-outline"></i>
-                                </li>
-                                <li class="completed">
-                                    <div class="form-check">
-                                        <label class="form-check-label">
-                                            <input class="checkbox" type="checkbox" checked> Call John </label>
-                                    </div>
-                                    <i class="remove mdi mdi-close-circle-outline"></i>
-                                </li>
-                                <li>
-                                    <div class="form-check">
-                                        <label class="form-check-label">
-                                            <input class="checkbox" type="checkbox"> Create invoice </label>
-                                    </div>
-                                    <i class="remove mdi mdi-close-circle-outline"></i>
-                                </li>
-                                <li>
-                                    <div class="form-check">
-                                        <label class="form-check-label">
-                                            <input class="checkbox" type="checkbox"> Print Statements </label>
-                                    </div>
-                                    <i class="remove mdi mdi-close-circle-outline"></i>
-                                </li>
-                                <li class="completed">
-                                    <div class="form-check">
-                                        <label class="form-check-label">
-                                            <input class="checkbox" type="checkbox" checked> Prepare for presentation
-                                        </label>
-                                    </div>
-                                    <i class="remove mdi mdi-close-circle-outline"></i>
-                                </li>
-                                <li>
-                                    <div class="form-check">
-                                        <label class="form-check-label">
-                                            <input class="checkbox" type="checkbox"> Pick up kids from school </label>
-                                    </div>
-                                    <i class="remove mdi mdi-close-circle-outline"></i>
-                                </li>
-                            </ul>
+                        <div class="col-md-12" style="height: 350px; position: relative;">
+                            <canvas id="chart_top_customers_pie"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    
+    <script src="//cdnjs.cloudflare.com/ajax/libs/raphael/2.1.0/raphael-min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/morris.js/0.5.1/morris.min.js"></script>
+    <script>
+        // Biến global để lưu chart instances
+        var chart_revenue_by_month = null;
+        var chart_top_customers_pie = null;
+        var hotel_id = {{ $hotel->hotel_id ?? 'null' }};
+
+        $(document).ready(function() {
+            // Khởi tạo biểu đồ cột - Doanh thu theo tháng
+            if ($('#chart_revenue_by_month').length > 0 && hotel_id) {
+                chart_revenue_by_month = new Morris.Bar({
+                    element: 'chart_revenue_by_month',
+                    barColors: ['#33CCFF'],
+                    hideHover: 'auto',
+                    parseTime: false,
+                    data: [],
+                    xkey: 'date',
+                    ykeys: ['revenue'],
+                    labels: ['Doanh Thu'],
+                    resize: true
+                });
+            }
+
+            // Load tất cả biểu đồ khi trang load
+            loadManagerCharts();
+        });
+
+        // Hàm load tất cả biểu đồ với filter chung
+        function loadManagerCharts() {
+            if (!hotel_id) {
+                console.log("Không có hotel_id");
+                return;
+            }
+
+            var filter_type = $('#manager_filter_type').val();
+            var date = $('#manager_filter_date').val();
+
+            // Load biểu đồ doanh thu theo tháng
+            loadRevenueByMonth(filter_type, date);
+
+            // Load biểu đồ top customers
+            loadTopCustomers(filter_type, date);
+        }
+
+        // Hàm load biểu đồ doanh thu theo tháng
+        function loadRevenueByMonth(filter_type, date) {
+            if (!hotel_id) return;
+
+            $.ajax({
+                url: '{{ url('/admin/hotel/manager/dashboard/revenue-by-month') }}',
+                method: 'GET',
+                dataType: 'JSON',
+                data: {
+                    hotel_id: hotel_id,
+                    filter_type: filter_type,
+                    date: date
+                },
+                success: function(data) {
+                    if (data && data.length > 0) {
+                        chart_revenue_by_month.setData(data);
+                    } else {
+                        chart_revenue_by_month.setData([]);
+                        console.log("Không có dữ liệu doanh thu");
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.log("Lỗi khi tải biểu đồ doanh thu:", error);
+                    if (chart_revenue_by_month) {
+                        chart_revenue_by_month.setData([]);
+                    }
+                }
+            });
+        }
+
+        // Hàm load biểu đồ top customers (Pie Chart)
+        function loadTopCustomers(filter_type, date) {
+            if (!hotel_id) return;
+
+            $.ajax({
+                url: '{{ url('/admin/hotel/manager/dashboard/top-customers') }}',
+                method: 'GET',
+                dataType: 'JSON',
+                data: {
+                    hotel_id: hotel_id,
+                    filter_type: filter_type,
+                    date: date
+                },
+                success: function(data) {
+                    var customers = data;
+
+                    // Chuẩn bị dữ liệu cho pie chart
+                    var chartData = customers.map(function(customer) {
+                        return {
+                            label: customer.customer_name.length > 20 ? customer.customer_name.substring(0, 20) + '...' : customer.customer_name,
+                            value: customer.total_orders
+                        };
+                    });
+
+                    // Sử dụng Chart.js cho pie chart
+                    var ctx = document.getElementById('chart_top_customers_pie');
+                    if (ctx) {
+                        if (chart_top_customers_pie) {
+                            chart_top_customers_pie.destroy();
+                        }
+                        chart_top_customers_pie = new Chart(ctx.getContext('2d'), {
+                            type: 'pie',
+                            data: {
+                                labels: chartData.map(function(item) {
+                                    return item.label;
+                                }),
+                                datasets: [{
+                                    data: chartData.map(function(item) {
+                                        return item.value;
+                                    }),
+                                    backgroundColor: ['#FF3399', '#A4ADD3', '#33CCFF', '#fc8710', '#FF6541', '#FF9966', '#00CC99', '#CC99FF', '#FFCC99', '#99CCFF']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                legend: {
+                                    position: 'right'
+                                },
+                                tooltips: {
+                                    callbacks: {
+                                        label: function(tooltipItem, data) {
+                                            return data.labels[tooltipItem.index] + ': ' + data.datasets[0].data[tooltipItem.index] + ' đơn';
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                },
+                error: function() {
+                    console.log("Lỗi khi tải dữ liệu top customers");
+                }
+            });
+        }
+
+        // Hàm đặt lại filter về mặc định
+        function resetManagerFilter() {
+            $('#manager_filter_type').val('month');
+            $('#manager_filter_date').val('{{ date('Y-m-d') }}');
+            loadManagerCharts();
+        }
+    </script>
 @endsection

@@ -54,8 +54,9 @@ class Handler extends ExceptionHandler
 
     public function render($request, Throwable $exception)
     {
-        if ($request->expectsJson()) {
+        if ($request->is('api/*')) {
 
+            // Validation
             if ($exception instanceof ValidationException) {
                 return ApiResource::error(
                     'Validation Failed',
@@ -64,7 +65,7 @@ class Handler extends ExceptionHandler
                 )->toResponse($request);
             }
 
-            // Authentication Exception
+            // Authentication
             if ($exception instanceof AuthenticationException) {
                 return ApiResource::error(
                     'Unauthenticated',
@@ -72,6 +73,7 @@ class Handler extends ExceptionHandler
                 )->toResponse($request);
             }
 
+            // HTTP exception (404, 403, ...)
             if ($exception instanceof HttpException) {
                 return ApiResource::error(
                     $exception->getMessage() ?: 'HTTP Error',
@@ -79,13 +81,16 @@ class Handler extends ExceptionHandler
                 )->toResponse($request);
             }
 
+            // Other exceptions
             return ApiResource::error(
-                $exception->getMessage() ?: 'Server Error',
+                config('app.debug')
+                    ? $exception->getMessage()
+                    : 'Server Error',
                 500
             )->toResponse($request);
         }
 
-        // Nếu request không phải API thì dùng render mặc định
+        // Web request → HTML
         return parent::render($request, $exception);
     }
 }

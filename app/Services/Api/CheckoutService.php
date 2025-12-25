@@ -24,6 +24,61 @@ use Illuminate\Support\Facades\Mail;
 
 class CheckoutService
 {
+    public function getMyOrders($customerId)
+    {
+        try {
+
+            if (!$customerId) {
+                return ApiResponse::error('Customer không hợp lệ', 400);
+            }
+
+            $list_id_orderer = Orderer::where('customer_id', $customerId)
+                ->pluck('orderer_id')
+                ->toArray();
+
+            if (empty($list_id_orderer)) {
+                return ApiResponse::error([], 'Không có đơn hàng', 404);
+            }
+
+            $orders = Order::with([
+                    'orderer',
+                    'payment',
+                    'orderDetails.hotel',
+                    'orderDetails.room.galleryroom',
+                    'orderDetails.room.typeroom'
+                ])
+                ->whereIn('orderer_id', $list_id_orderer)
+                ->orderByDesc('order_id')
+                ->get();
+
+            return ApiResponse::success($orders, 'Thành công!');
+
+        } catch (ModelNotFoundException $e) {
+
+            return ApiResponse::error('Không tìm thấy dữ liệu', 404);
+
+        } catch (QueryException $e) {
+
+            \Log::error('GetMyOrders SQL error', [
+                'customer_id' => $customerId,
+                'error' => $e->getMessage()
+            ]);
+
+            return ApiResponse::error('Lỗi truy vấn dữ liệu', 500);
+
+        } catch (Throwable $e) {
+
+            \Log::error('GetMyOrders error', [
+                'customer_id' => $customerId,
+                'error' => $e->getMessage()
+            ]);
+
+            return ApiResponse::error(
+                config('app.debug') ? $e->getMessage() : 'Lỗi hệ thống',
+                500
+            );
+        }
+    }
     public function orderRoom(array $payload): JsonResponse
     {
         try {
