@@ -45,6 +45,7 @@
                         @endhasanyroles
                     </div>
                 </div>
+                 <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -67,6 +68,7 @@
                     </tbody>
 
                 </table>
+                </div>
             </div>
         </div>
     </div>

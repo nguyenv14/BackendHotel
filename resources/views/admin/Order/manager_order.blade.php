@@ -111,7 +111,7 @@
                     </a>
                     @endhasanyroles --}}
                 </form>
-
+                <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -213,6 +213,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
                 <div id="loading" style="display:none; text-align:center; padding:10px;">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Đang tải...</span>
