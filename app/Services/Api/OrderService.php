@@ -249,10 +249,10 @@ class OrderService
         }
         
         $methodMap = [
-            1 => 'Thanh toán khi nhận phòng',
-            2 => 'Chuyển khoản',
-            3 => 'Thẻ tín dụng',
-            4 => 'Ví điện tử (Momo)',
+            1 => 'Chuyển khoản ngân hàng',  // Giữ cho tương thích
+            2 => 'Thanh toán bằng VNPay',
+            3 => 'Thanh toán bằng blockchain',
+            4 => 'Thanh toán khi nhận phòng',
         ];
         
         return [

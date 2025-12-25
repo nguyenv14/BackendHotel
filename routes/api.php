@@ -132,5 +132,5 @@ Route::get('/hotel-types', [ApiSearchController::class, 'getHotelTypes']);
 Route::post('/payment/vnpay/create', [ApiVnpayController::class, 'createPayment']);
 Route::get('/payment/vnpay/return', [ApiVnpayController::class, 'handleReturn'])->name('api.payment.vnpay.return');
 Route::match(['get', 'post'], '/payment/vnpay/ipn', [ApiVnpayController::class, 'handleIpn'])->name('api.payment.vnpay.ipn');
-Route::get('vnpay-payment-callback', [ApiVnpayController::class, 'vnpayPaymentCallback'])->name('api.payment.vnpay.callback');
+Route::get('/payment/vnpay-callback', [ApiVnpayController::class, 'vnpayPaymentCallback'])->name('api.payment.vnpay.callback');
 Route::post('/vnpay-ipn', [VnpayController::class, 'ipn']);
