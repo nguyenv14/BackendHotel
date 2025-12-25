@@ -352,7 +352,7 @@ class SearchService
             case 'relevant':
             default:
                 // Keep default order (usually by hotel_id or created_at)
-                $query->orderBy('tbl_hotel.hotel_id', 'DESC');
+                $query->orderBy('tbl_hotel.hotel_id', 'ASC');
                 break;
         }
     }

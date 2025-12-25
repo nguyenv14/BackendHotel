@@ -49,6 +49,7 @@ class CheckoutService
                 ])
                 ->whereIn('orderer_id', $list_id_orderer)
                 ->orderByDesc('order_id')
+                ->take(5)
                 ->get();
 
             return ApiResponse::success($orders, 'Thành công!');

@@ -118,7 +118,9 @@ class ManagerHotelRepository extends BaseRepository implements ManagerHotelRepos
             $image_name = current(explode('.', $get_image_name)); /* VD Tên File Là nhan.jpg thì hàm explode dựa vào dấm . để phân tách thành 2 chuổi là nhan và jpg , còn hàm current để chuổi đầu , hàm end thì lấy cuối */
             $new_image = $image_name . rand(0, 99) . '.' . $get_image->getClientOriginalExtension(); /* getClientOriginalExtension() hàm lấy phần mở rộng của ảnh */
             $get_image->move('public/fontend/assets/img/hotel/', $new_image);
-            unlink('public/fontend/assets/img/hotel/'. $hotel->hotel_image);
+            if($hotel->hotel_image != null){
+                unlink('public/fontend/assets/img/hotel/'. $hotel->hotel_image);
+            }
             $data['hotel_image'] = $new_image;
         } 
         $this->update($data['hotel_id'] , $data);
