@@ -32,13 +32,18 @@ use Illuminate\Support\Facades\Route;
 Route::get('/slides', [ApiSlideController::class, 'getSlides']);
 Route::get('/slogans', [ApiSloganController::class, 'getSlogans']);
 Route::get('/areas', [ApiAreaController::class, 'getAreas']);
-Route::get('/hotels', [ApiHotelController::class, 'getHotels']);
-Route::get('/hotel/flashsales', [ApiHotelController::class, 'getFlashSaleHotels']);
 Route::get('/coupons', [ApiCouponController::class, 'getCoupons']);
-Route::get('/hotels/{hotel_id}/evaluations', [ApiHotelController::class, 'getEvaluateHotelByID']);
-Route::get('/hotels/{hotel_id}/details', [ApiHotelController::class, 'getDetailsHotelByID']);
-Route::get('/hotels/{hotel_id}/rooms', [ApiHotelController::class, 'getRoomHotelByID']);
+
+Route::prefix('hotels')->controller(ApiHotelController::class)->group(function () {
+    Route::get('/', 'getHotels');
+    Route::get('/flashsales', 'getFlashSaleHotels');
+    Route::get('/{hotel_id}/evaluations', 'getEvaluateHotelByID');
+    Route::get('/{hotel_id}/details', 'getDetailsHotelByID');
+    Route::get('/{hotel_id}/rooms', 'getRoomHotelByID');
+});
+
 Route::get('/hotels/payment/{typeroom_id}', [ApiCheckoutController::class, 'getTypeRoomByID']);
+Route::get('/customer/my-orders', [ApiCheckoutController::class, 'getMyOrders'])->middleware('auth:api');
 
 Route::prefix('hotel')->group(function () {
     Route::get('/search', [ApiSearchController::class, 'search']);
@@ -53,7 +58,6 @@ Route::prefix('order')->group(function () {
     Route::post('/cancel', [ApiOrderHotelController::class, 'cancelOrder'])->middleware('auth:api');
     Route::put('/status', [ApiOrderHotelController::class, 'updateOrderStatus'])->middleware('auth:api');
     Route::get('/statistics', [ApiOrderHotelController::class, 'getOrderStatistics'])->middleware('auth:api');
-    
     // checkOut
     Route::post('/checkout', [ApiCheckoutController::class, 'orderRoom'])->middleware('auth:api');  
 });
