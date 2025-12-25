@@ -11,5 +11,5 @@ return [
     'return_url' => env('VNPAY_RETURN_URL'),
     'ipn_url' => env('VNPAY_IPN_URL'),
     'order_type' => env('VNPAY_ORDER_TYPE', 'other'),
-    'expired_minutes' => (int) env('VNPAY_EXPIRED_MINUTES', 15),
+    'expired_minutes' => (int) env('VNPAY_EXPIRED_MINUTES', 60), // Tăng lên 60 phút (1 giờ) để user có đủ thời gian thanh toán
 ];
