@@ -49,7 +49,7 @@ class VnpayService
     private function createPayment()
     {
         $payment                 = new Payment();
-        $payment->payment_method = 4;
+        $payment->payment_method = 2; // 2: Thanh toán bằng VNPay
         $payment->payment_status = 0;
         $payment->save();
         return $payment;
@@ -149,7 +149,9 @@ class VnpayService
             return ApiResponse::error('Cấu hình VNPAY không hợp lệ', 500);
         }
         $payload = $request->all();
-        $orderCode = $payload['order_code'] ?? Carbon::now()->format('YmdHis') . Random::generate(6, '0123456789');
+        // Đảm bảo timezone là Asia/Ho_Chi_Minh để khớp với VNPay
+        $now = Carbon::now('Asia/Ho_Chi_Minh');
+        $orderCode = $payload['order_code'] ?? $now->format('YmdHis') . Random::generate(6, '0123456789');
         $orderInfo = $payload['order_info'] ?? sprintf('Thanh toán đơn hàng %s', $orderCode);
         [$order, $errorMessage] = $this->createOrderForVnpay($payload, $orderCode);
         if ($errorMessage !== null || ! $order instanceof Order) {
@@ -159,39 +161,65 @@ class VnpayService
         if ($amount <= 0) {
             return ApiResponse::error('Số tiền thanh toán không hợp lệ', 400);
         }
+        // Resolve return URL
+        $returnUrl = $this->config['return_url'] ?? $this->resolveReturnUrl($request);
+        
+        // Log để debug
+        Log::info('VNPay create payment URL - Config check', [
+            'tmn_code' => $this->config['tmn_code'] ? '***' . substr($this->config['tmn_code'], -4) : 'MISSING',
+            'has_hash_secret' => !empty($this->config['hash_secret']),
+            'vnp_payment_url' => $this->config['vnp_payment_url'] ?? 'MISSING',
+            'return_url' => $returnUrl,
+            'return_url_config' => $this->config['return_url'] ?? 'NOT_SET',
+        ]);
+        
         $vnpParams = [
             'vnp_Version'    => $this->config['version'] ?? '2.1.0',
             'vnp_Command'    => $this->config['command'] ?? 'pay',
             'vnp_TmnCode'    => $this->config['tmn_code'],
             'vnp_Amount'     => (int) round($amount * 100),
-            'vnp_CreateDate' => Carbon::now()->format('YmdHis'),
+            'vnp_CreateDate' => $now->format('YmdHis'),
             'vnp_CurrCode'   => $this->config['curr_code'] ?? 'VND',
             'vnp_IpAddr'     => $request->ip(),
             'vnp_Locale'     => $this->config['locale'] ?? 'vn',
             'vnp_OrderInfo'  => $orderInfo,
             'vnp_OrderType'  => $this->config['order_type'] ?? 'other',
-            'vnp_ReturnUrl'  => $this->config['return_url'] ?? $this->resolveReturnUrl($request),
+            'vnp_ReturnUrl'  => $returnUrl,
             'vnp_TxnRef'     => $orderCode,
         ];
         if (! empty($payload['bank_code'])) {
             $vnpParams['vnp_BankCode'] = $payload['bank_code'];
         }
-        $expiredMinutes = (int) ($this->config['expired_minutes'] ?? 0);
+        $expiredMinutes = (int) ($this->config['expired_minutes'] ?? 60);
         if ($expiredMinutes > 0) {
-            $vnpParams['vnp_ExpireDate'] = Carbon::now()->addMinutes($expiredMinutes)->format('YmdHis');
+            $vnpParams['vnp_ExpireDate'] = $now->copy()->addMinutes($expiredMinutes)->format('YmdHis');
         }
         ksort($vnpParams);
         $hashData  = [];
         $queryData = [];
+        $i = 0;
+        
+        // Build querystring và hashdata theo chuẩn VNPay 2.1.0
+        // Lưu ý: Trong phiên bản 2.1.0, hashdata cũng phải dùng urlencode cho cả key và value
         foreach ($vnpParams as $key => $value) {
             if ($value === null || $value === '') {
                 continue;
             }
-            $hashData[]  = $key . '=' . $value;
+            
+            // Build hashdata với urlencode (phiên bản 2.1.0)
+            if ($i == 0) {
+                $hashData[] = urlencode($key) . '=' . urlencode((string) $value);
+            } else {
+                $hashData[] = '&' . urlencode($key) . '=' . urlencode((string) $value);
+            }
+            $i = 1;
+            
+            // Build query string
             $queryData[] = urlencode($key) . '=' . urlencode((string) $value);
         }
 
-        $hashString = implode('&', $hashData);
+        // Implode hashData - không dùng '&' vì đã có trong hashData
+        $hashString = implode('', $hashData);
         $secureHash = hash_hmac('sha512', $hashString, $this->config['hash_secret']);
 
         $paymentUrl = rtrim($this->config['vnp_payment_url'], '?') . '?' . implode('&', $queryData) . '&vnp_SecureHash=' . $secureHash;
@@ -277,33 +305,69 @@ class VnpayService
     public function handleIpn(Request $request): array
     {
         $params = $request->all();
+        
+        // Log IPN request để debug
+        Log::info('VNPay IPN received', [
+            'params' => $params,
+            'method' => $request->method(),
+            'ip' => $request->ip()
+        ]);
 
         if (! $this->validateSignature($params)) {
+            Log::error('VNPay IPN: Invalid signature', ['params' => $params]);
             return ['RspCode' => '97', 'Message' => 'Invalid signature'];
         }
 
         $order = $this->getOrderFromCallback($params);
         if (! $order instanceof Order) {
+            Log::warning('VNPay IPN: Order not found', [
+                'vnp_TxnRef' => $params['vnp_TxnRef'] ?? null,
+                'params' => $params
+            ]);
             return ['RspCode' => '01', 'Message' => 'Order not found'];
         }
 
         if (! $this->validateAmount($order, $params)) {
+            Log::warning('VNPay IPN: Invalid amount', [
+                'order_code' => $order->order_code,
+                'order_amount' => $order->total_price,
+                'vnp_Amount' => isset($params['vnp_Amount']) ? ((int) $params['vnp_Amount']) / 100 : null,
+                'params' => $params
+            ]);
             return ['RspCode' => '04', 'Message' => 'Invalid amount'];
         }
 
         $payment = $order->payment;
         if ($payment && (int) $payment->payment_status === 1) {
+            Log::info('VNPay IPN: Order already confirmed', [
+                'order_code' => $order->order_code,
+                'payment_status' => $payment->payment_status
+            ]);
             return ['RspCode' => '02', 'Message' => 'Order already confirmed'];
         }
 
-        $isSuccess = $params['vnp_ResponseCode'] === '00' && $params['vnp_TransactionStatus'] === '00';
+        // Kiểm tra thành công: vnp_ResponseCode = '00'
+        // vnp_TransactionStatus có thể không có trong IPN callback, chỉ kiểm tra nếu có
+        $isSuccess = $params['vnp_ResponseCode'] === '00';
+        if (isset($params['vnp_TransactionStatus'])) {
+            $isSuccess = $isSuccess && $params['vnp_TransactionStatus'] === '00';
+        }
 
         $this->syncOrderStatus($order, $isSuccess, $params);
 
         if ($isSuccess) {
+            Log::info('VNPay IPN: Payment confirmed successfully', [
+                'order_code' => $order->order_code,
+                'vnp_TransactionNo' => $params['vnp_TransactionNo'] ?? null
+            ]);
             return ['RspCode' => '00', 'Message' => 'Confirm Success'];
         }
 
+        Log::warning('VNPay IPN: Payment failed', [
+            'order_code' => $order->order_code,
+            'vnp_ResponseCode' => $params['vnp_ResponseCode'] ?? null,
+            'vnp_TransactionStatus' => $params['vnp_TransactionStatus'] ?? null
+        ]);
         return ['RspCode' => '99', 'Message' => 'Payment failed'];
     }
 
@@ -325,8 +389,8 @@ class VnpayService
         $paymentStatusBefore = (int) $payment->payment_status;
         $orderStatusBefore   = (int) $order->order_status;
 
-        if ((int) $payment->payment_method !== 4) {
-            $payment->payment_method = 4;
+        if ((int) $payment->payment_method !== 2) {
+            $payment->payment_method = 2; // 2: Thanh toán bằng VNPay
         }
 
         $targetPaymentStatus = $isSuccess ? 1 : 0;
@@ -370,11 +434,20 @@ class VnpayService
     private function validateSignature(array $params): bool
     {
         $secureHash = $params['vnp_SecureHash'] ?? '';
+        $secureHashType = $params['vnp_SecureHashType'] ?? '';
+        
         if ($secureHash === '' || ! $this->isConfigured()) {
+            Log::warning('VNPay signature validation failed: missing secureHash or config', [
+                'hasSecureHash' => !empty($secureHash),
+                'isConfigured' => $this->isConfigured()
+            ]);
             return false;
         }
+        
+        // Loại bỏ vnp_SecureHash và vnp_SecureHashType khỏi params để tính hash
         unset($params['vnp_SecureHash'], $params['vnp_SecureHashType']);
 
+        // Chỉ lấy các params bắt đầu bằng vnp_
         $params = array_filter(
             $params,
             static fn($value, $key) => str_starts_with($key, 'vnp_'),
@@ -383,14 +456,48 @@ class VnpayService
 
         ksort($params);
         $hashData = [];
+        $i = 0;
 
+        // Build hashdata theo chuẩn VNPay 2.1.0 (dùng urlencode cho cả key và value)
         foreach ($params as $key => $value) {
-            $hashData[] = $key . '=' . $value;
+            if ($value === null || $value === '') {
+                continue;
+            }
+            
+            if ($i == 0) {
+                $hashData[] = urlencode($key) . '=' . urlencode((string) $value);
+            } else {
+                $hashData[] = '&' . urlencode($key) . '=' . urlencode((string) $value);
+            }
+            $i = 1;
         }
 
-        $calculatedHash = hash_hmac('sha512', implode('&', $hashData), $this->config['hash_secret']);
+        $hashString = implode('', $hashData);
+        
+        // VNPay 2.1.0 dùng SHA512, nhưng cũng hỗ trợ MD5 và SHA256 (từ vnp_SecureHashType)
+        $calculatedHash = '';
+        if ($secureHashType === 'MD5') {
+            $calculatedHash = md5($this->config['hash_secret'] . $hashString);
+        } elseif ($secureHashType === 'SHA256') {
+            $calculatedHash = hash('sha256', $this->config['hash_secret'] . $hashString);
+        } else {
+            // Mặc định dùng SHA512 (phiên bản 2.1.0)
+            $calculatedHash = hash_hmac('sha512', $hashString, $this->config['hash_secret']);
+        }
 
-        return hash_equals($calculatedHash, $secureHash);
+        $isValid = hash_equals($calculatedHash, $secureHash);
+        
+        if (!$isValid) {
+            Log::warning('VNPay signature validation failed', [
+                'calculatedHash' => $calculatedHash,
+                'receivedHash' => $secureHash,
+                'hashType' => $secureHashType,
+                'hashString' => $hashString,
+                'params' => $params
+            ]);
+        }
+
+        return $isValid;
     }
 
     private function getOrderFromCallback(array $params): ?Order
@@ -426,7 +533,44 @@ class VnpayService
 
     private function resolveReturnUrl(Request $request): string
     {
-        return env("SERVER_URL") . "api/vnpay-payment-callback";
+        // Return URL trỏ về frontend page để xử lý callback
+        // Nếu có config return_url thì dùng, không thì tự động resolve
+        if (!empty($this->config['return_url'])) {
+            return $this->config['return_url'];
+        }
+        
+        // Tự động resolve từ request hoặc env
+        $frontendUrl = env("FRONTEND_URL", env("APP_URL", "http://localhost:3000"));
+        $returnUrl = rtrim($frontendUrl, '/') . '/payment/vnpay-callback';
+        
+        // Log để debug
+        Log::info('VNPay Return URL resolved', [
+            'returnUrl' => $returnUrl,
+            'frontendUrl' => $frontendUrl,
+            'appUrl' => env("APP_URL")
+        ]);
+        
+        return $returnUrl;
+    }
+    
+    private function resolveIpnUrl(Request $request): string
+    {
+        // IPN URL trỏ về backend API để xử lý callback từ VNPay
+        if (!empty($this->config['ipn_url'])) {
+            return $this->config['ipn_url'];
+        }
+        
+        // Tự động resolve từ request
+        $backendUrl = env("APP_URL", $request->getSchemeAndHttpHost());
+        $ipnUrl = rtrim($backendUrl, '/') . '/api/payment/vnpay/ipn';
+        
+        // Log để debug
+        Log::info('VNPay IPN URL resolved', [
+            'ipnUrl' => $ipnUrl,
+            'backendUrl' => $backendUrl
+        ]);
+        
+        return $ipnUrl;
     }
 
     private function buildCallbackUrl(Request $request, string $path): string

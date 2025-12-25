@@ -253,14 +253,18 @@ class CheckoutService
         $payment = new Payment();
         
         // Map payment_method từ string sang số
-        $paymentMethod = $payload['payment_method'] ?? 'bank-transfer';
+        // 4: thanh toán khi nhận phòng (direct)
+        // 3: thanh toán bằng blockchain (blockchain/metamask) - xử lý ở createBlockchainPayment()
+        // 2: thanh toán bằng vnpay (vnpay/qr-pay)
+        $paymentMethod = $payload['payment_method'] ?? 'direct';
         $paymentMethodMap = [
-            'bank-transfer' => 1,
-            'qr-pay' => 2,
-            'vnpay' => 4,
+            'direct' => 4,           // Thanh toán khi nhận phòng
+            'bank-transfer' => 1,    // Chuyển khoản ngân hàng (giữ nguyên cho tương thích)
+            'qr-pay' => 2,           // VNPay QR
+            'vnpay' => 2,            // VNPay
         ];
         
-        $payment->payment_method = $paymentMethodMap[$paymentMethod] ?? 4; // Default: VNPay
+        $payment->payment_method = $paymentMethodMap[$paymentMethod] ?? 4; // Default: Thanh toán khi nhận phòng
         $payment->payment_status = 0;
         $payment->save();
 
@@ -275,21 +279,45 @@ class CheckoutService
     {
         $payment = new Payment();
         
-        // Blockchain/MetaMask dùng payment_method = 5
-        $payment->payment_method = 5;
+        // Blockchain/MetaMask dùng payment_method = 3
+        $payment->payment_method = 3;
         
-        // Lưu transaction hash nếu có
+        // Lưu transaction hash nếu có và cột tồn tại
         if (isset($payload['transaction_hash']) && !empty($payload['transaction_hash'])) {
-            $payment->transaction_hash = $payload['transaction_hash'];
+            try {
+                $payment->transaction_hash = $payload['transaction_hash'];
+            } catch (\Exception $e) {
+                // Nếu cột chưa tồn tại, log lỗi nhưng vẫn tiếp tục
+                \Log::warning('Column transaction_hash not found: ' . $e->getMessage());
+            }
         }
         
-        // Lưu số lượng ETH đã thanh toán nếu có
+        // Lưu số lượng ETH đã thanh toán nếu có và cột tồn tại
         if (isset($payload['payment_amount_eth']) && !empty($payload['payment_amount_eth'])) {
-            $payment->payment_amount_eth = $payload['payment_amount_eth'];
+            try {
+                $payment->payment_amount_eth = $payload['payment_amount_eth'];
+            } catch (\Exception $e) {
+                // Nếu cột chưa tồn tại, log lỗi nhưng vẫn tiếp tục
+                \Log::warning('Column payment_amount_eth not found: ' . $e->getMessage());
+            }
         }
         
         $payment->payment_status = 0; // 0 = chưa thanh toán, 1 = đã thanh toán
-        $payment->save();
+        
+        try {
+            $payment->save();
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Nếu lỗi do thiếu cột, thử save lại không có các trường blockchain
+            if (str_contains($e->getMessage(), 'transaction_hash') || str_contains($e->getMessage(), 'payment_amount_eth')) {
+                \Log::error('Database columns missing. Please run migration: ' . $e->getMessage());
+                // Unset các trường blockchain và thử lại
+                unset($payment->transaction_hash);
+                unset($payment->payment_amount_eth);
+                $payment->save();
+            } else {
+                throw $e;
+            }
+        }
 
         return $payment;
     }
