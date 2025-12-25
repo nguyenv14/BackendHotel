@@ -298,28 +298,7 @@
                         </div>
                     </li>
                     @endhasanyroles
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="collapse" href="#hotel-gallery-menu"
-                            aria-expanded="false" aria-controls="hotel-gallery">
-                            <span class="menu-title">Quản Lý Ảnh Và Video KS</span>
-                            <i class="menu-arrow"></i>
-                            <i class="mdi mdi-folder-image menu-icon"></i>
-                        </a>
-                        <div class="collapse" id="hotel-gallery-menu">
-                            <ul class="nav flex-column sub-menu">
-                                <li class="nav-item"> <a class="nav-link"
-                                        href="{{ URL::to('admin/hotel/manager/list-media-gallery?hotel_id=' . $hotel->hotel_id) }}">Thư
-                                        Viện Ảnh Và Video</a></li>
-                                <li class="nav-item"> <a class="nav-link"
-                                        href="{{ URL::to('admin/hotel/manager/list-video-gallery?hotel_id=' . $hotel->hotel_id) }}">Thêm
-                                        Video</a></li>
-                                <li class="nav-item"> <a class="nav-link"
-                                        href="{{ URL::to('admin/hotel/manager/list-image-gallery?hotel_id=' . $hotel->hotel_id) }}">Thêm
-                                        Thư Viện Ảnh</a></li>
-                            </ul>
-                        </div>
-                    </li>
-
+ 
 
                     <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="collapse" href="#hotel-rooms-menu" aria-expanded="false"
@@ -363,6 +342,23 @@
                     </li>
 
                     <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="collapse" href="#ui-basic-order" aria-expanded="false"
+                            aria-controls="ui-basic">
+                            <span class="menu-title">Quản Lý Đặt Phòng</span>
+                            <i class="menu-arrow"></i>
+                            <i class="mdi mdi-map-marker-radius menu-icon"></i>
+                        </a>
+                        <div class="collapse" id="ui-basic-order">
+                            <ul class="nav flex-column sub-menu">
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/hotel/manager/order/all-order?hotel_id=' . $hotel->hotel_id) }}">Danh
+                                        Sách Đơn Đặt Phòng</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+
+                    <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="collapse" href="#hotel-edit-info-menu"
                             aria-expanded="false" aria-controls="hotel-edit-info-menu">
                             <span class="menu-title">Chỉnh Sửa Thông Tin</span>
@@ -378,6 +374,29 @@
                         </div>
                     </li>
 
+                                       <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="collapse" href="#hotel-gallery-menu"
+                            aria-expanded="false" aria-controls="hotel-gallery">
+                            <span class="menu-title">Quản Lý Phương Tiện</span>
+                            <i class="menu-arrow"></i>
+                            <i class="mdi mdi-folder-image menu-icon"></i>
+                        </a>
+                        <div class="collapse" id="hotel-gallery-menu">
+                            <ul class="nav flex-column sub-menu">
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/hotel/manager/list-media-gallery?hotel_id=' . $hotel->hotel_id) }}">Thư
+                                        Viện Ảnh Và Video</a></li>
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/hotel/manager/list-video-gallery?hotel_id=' . $hotel->hotel_id) }}">Thêm
+                                        Video</a></li>
+                                <li class="nav-item"> <a class="nav-link"
+                                        href="{{ URL::to('admin/hotel/manager/list-image-gallery?hotel_id=' . $hotel->hotel_id) }}">Thêm
+                                        Thư Viện Ảnh</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+
                     <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="collapse" href="#hotel-overview-info-menu"
                             aria-expanded="false" aria-controls="hotel-overview-info-menu">
@@ -391,21 +410,6 @@
                         </div>
                     </li>
 
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="collapse" href="#ui-basic-order" aria-expanded="false"
-                            aria-controls="ui-basic">
-                            <span class="menu-title">Quản Lý Đặt Phòng</span>
-                            <i class="menu-arrow"></i>
-                            <i class="mdi mdi-map-marker-radius menu-icon"></i>
-                        </a>
-                        <div class="collapse" id="ui-basic-order">
-                            <ul class="nav flex-column sub-menu">
-                                <li class="nav-item"> <a class="nav-link"
-                                        href="{{ URL::to('admin/hotel/manager/order/all-order?hotel_id=' . $hotel->hotel_id) }}">Danh
-                                        Sách Đơn Đặt Phòng</a></li>
-                            </ul>
-                        </div>
-                    </li>
 
                 </ul>
             </nav>

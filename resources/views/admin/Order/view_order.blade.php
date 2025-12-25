@@ -34,6 +34,7 @@
                         <div class="col-sm-3">
                         </div>
                     </div>
+                    <div class="table-responsive">
                     <table style="margin-top:20px " class="table table-bordered">
                         <thead>
                             <tr>
@@ -50,6 +51,7 @@
                             <td>{{ $orderer->customer->customer_email }}</td>
                         </tbody>
                     </table>
+                    </div>
                 @else
                     <div style="display: flex;justify-content: space-between">
                         <div class="card-title col-sm-9">Thông Tin Khách Hàng Liên Hệ</div>

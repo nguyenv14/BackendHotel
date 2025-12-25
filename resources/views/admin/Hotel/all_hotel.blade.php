@@ -45,23 +45,26 @@
                         @endhasanyroles
                     </div>
                 </div>
-                <table style="margin-top:20px " class="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>#ID </th>
-                            <th>Tên</th>
-                            <th>Hạng</th>
-                            <th>Ảnh</th>
-                            <th>Khu Vực</th>
-                            <th>Hiễn Thị </th>
-                            <th>Thao Tác </th>
-                        </tr>
-                    </thead>
-                    <tbody id="load_hotel">
 
-                    </tbody>
+                <div class="table-responsive">
+                    <table style="margin-top:20px" class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>#ID</th>
+                                <th>Tên</th>
+                                <th>Hạng</th>
+                                <th>Loại</th>
+                                <th>Khu Vực</th>
+                                <!-- <th>Tập Đoàn</th> -->
+                                <th>Ảnh</th>
+                                <th>Trạng Thái</th>
+                                <th>Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="load_hotel"></tbody>
+                    </table>
+                </div>
 
-                </table>
             </div>
         </div>
     </div>
