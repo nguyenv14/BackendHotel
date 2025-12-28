@@ -15,6 +15,7 @@
         "laravel/sanctum": "^3.0",
         "laravel/socialite": "^5.5",
         "laravel/tinker": "^2.7",
+        "league/flysystem-aws-s3-v3": "^3.23",
         "spatie/laravel-analytics": "^4.1",
         "stevebauman/location": "^6.5",
         "tigo/recommendation": "^0.0.2",

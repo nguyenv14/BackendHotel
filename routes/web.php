@@ -466,6 +466,9 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
             Route::group(['prefix' => 'admin/config-footer'], function () {
                 Route::GET('/', 'show_company_config');
                 Route::GET('/edit-content-footer', 'edit_content_footer');
+                Route::POST('/upload-policy-file', 'upload_policy_file');
+                Route::GET('/policy-files', 'get_policy_files');
+                Route::POST('/parse-policy-file', 'parse_policy_file');
             });
         });
         /* Quản Lý Đơn Đặt Phòng */

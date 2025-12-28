@@ -9,7 +9,7 @@ class ConfigWeb extends Model
 {
    public $timestamps = false;
    protected $fillable = [
-    'config_image' ,  'config_title' , 'config_content' ,  'config_type'   /* Trường Trong Bảng */
+    'config_image' ,  'config_title' , 'config_content' ,  'config_type' , 'policies', 'company_id'  /* Trường Trong Bảng */
    ]; 
    protected $primaryKey =  'config_id'; /* Khóa Chính */
    protected $table =   'tbl_configweb'; /* Tên Bảng */
