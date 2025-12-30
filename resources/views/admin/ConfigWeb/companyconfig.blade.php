@@ -29,6 +29,7 @@
                     </div>
                 </div>
 
+                <div class="table-responsive">
                 <table class="table table-bordered">
                     
                     <tbody>
@@ -100,6 +101,7 @@
                     @endif
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     </div>
@@ -120,6 +122,7 @@
 
                 <!-- File List -->
                 <div id="policyFilesList">
+                    <div class="table-responsive">
                     <table class="table table-bordered">
                         <thead>
                             <tr>
@@ -141,6 +144,7 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
         </div>

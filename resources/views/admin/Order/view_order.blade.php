@@ -58,6 +58,7 @@
                         <div class="col-sm-3">
                         </div>
                     </div>
+                    <div class="table-responsive">
                     <table style="margin-top:20px " class="table table-bordered">
                         <thead>
                             <tr>
@@ -72,6 +73,7 @@
                             <td>{{ $orderer['orderer_email'] }}</td>
                         </tbody>
                     </table>
+                    </div>
                 @endif
             </div>
         </div>
@@ -85,6 +87,7 @@
                     <div class="col-sm-3">
                     </div>
                 </div>
+                <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -124,6 +127,7 @@
                     </tbody>
 
                 </table>
+                </div>
             </div>
         </div>
     </div>
@@ -136,6 +140,7 @@
                     <div class="col-sm-3">
                     </div>
                 </div>
+                <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -156,6 +161,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div>
                 <div style="margin-top:20px ">
                     <tr>
                         <td>Phí Khách Sạn : {{ number_format($orderdetails->hotel_fee, 0, ',', '.') }}đ</td><br>

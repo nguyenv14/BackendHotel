@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Repositories\CompanyConfigRepository\CompanyConfigRepositoryInterface;
 use App\Services\Api\HotelService;
+use App\Jobs\ParsePolicyFileJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Log;
 use Session;
 use App\Models\ManipulationActivity;
 use App\Models\CompanyConfig;
@@ -125,63 +127,30 @@ class CompanyConfigController extends Controller
                 ], 400);
             }
             
-            // Get recommendation API URL from env
-            $recommendationApiUrl = env('RECOMMENDATION_API_URL', 'http://localhost:5000');
-            $parseUrl = $recommendationApiUrl . '/api/documents/parse-file';
+            // Dispatch job to queue
+            ParsePolicyFileJob::dispatch($fileUrl, $fileName, $filePath, $info->company_id);
             
-            // Call recommendation API to parse file
-            $response = \Illuminate\Support\Facades\Http::timeout(300)->post($parseUrl, [
+            Log::info('Parse policy file job dispatched', [
                 'file_url' => $fileUrl,
                 'file_name' => $fileName,
-                'collection_name' => 'policy_documents',
-                'chunk_size' => 1000,
-                'chunk_overlap' => 200
+                'file_path' => $filePath,
+                'company_id' => $info->company_id
             ]);
             
-            if (!$response->successful()) {
-                $errorMsg = 'Parse file thất bại';
-                try {
-                    $errorData = $response->json();
-                    if (isset($errorData['message'])) {
-                        $errorMsg = $errorData['message'];
-                    }
-                } catch (\Exception $e) {
-                    $errorMsg = 'Lỗi khi gọi API recommendation: ' . $response->status();
-                }
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => $errorMsg
-                ], 500);
-            }
-            
-            $result = $response->json();
-            
-            if ($result['success'] ?? false) {
-                // Mark file as parsed in database
-                $this->hotelService->markPolicyFileAsParsed($info->company_id, $filePath);
-                
-                return response()->json([
-                    'success' => true,
-                    'message' => $result['message'] ?? 'Parse file thành công',
-                    'data' => $result['data'] ?? []
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message'] ?? 'Parse file thất bại'
-                ], 500);
-            }
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã thêm job parse file vào queue. File sẽ được xử lý trong background.'
+            ]);
             
         } catch (\Exception $e) {
-            \Log::error('Parse policy file error', [
+            Log::error('Dispatch parse policy file job error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
             
             return response()->json([
                 'success' => false,
-                'message' => 'Lỗi parse file: ' . $e->getMessage()
+                'message' => 'Lỗi khi thêm job vào queue: ' . $e->getMessage()
             ], 500);
         }
     }
