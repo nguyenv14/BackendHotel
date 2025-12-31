@@ -1,18 +1,18 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\BannerADS;
 use App\Models\Coupon;
+use App\Models\Evaluate;
 use App\Models\GalleryHotel;
 use App\Models\GalleryRoom;
 use App\Models\Hotel;
 use App\Models\OrderDetails;
 use App\Models\Room;
 use App\Models\TypeRoom;
-use App\Models\Evaluate;
-use DB;
+use App\Services\Api\HotelService;
 use Carbon\Carbon;
+use DB;
 use Illuminate\Http\Request;
 use Session;
 
@@ -20,16 +20,22 @@ session_start();
 
 class HotelController extends Controller
 {
+    private HotelService $hotelService;
+
+    public function __construct(HotelService $hotelService)
+    {
+        $this->hotelService = $hotelService;
+    }
     /* Trang Khách Sạn */
     public function index()
     {
         $meta = [
-            'title' => 'Khách Sạn',
+            'title'       => 'Khách Sạn',
             'description' => 'MyHotel - Trang Tìm Kiếm Và Đặt Phòng Khách Sạn Trong Khu Vực Đà Nẵng',
-            'keywords' => 'Khách Sạn Đà Nẵng , Đà Nẵng , Du Lịch , Đặt Khách Sạn , Khách Sạn Giá Rẻ',
-            'canonical' => request()->url(),
-            'sitename' => 'nhuandeptraivanhanbro.doancoso2.laravel.vn',
-            'image' => '',
+            'keywords'    => 'Khách Sạn Đà Nẵng , Đà Nẵng , Du Lịch , Đặt Khách Sạn , Khách Sạn Giá Rẻ',
+            'canonical'   => request()->url(),
+            'sitename'    => 'nhuandeptraivanhanbro.doancoso2.laravel.vn',
+            'image'       => '',
         ];
 
         /** Lấy top khách sạn có nhiều đặt phòng nhất */
@@ -87,7 +93,7 @@ class HotelController extends Controller
             ->where('bannerads_status', 1)
             ->inRandomOrder()
             ->first();
-   
+
         return view('pages.hotel', compact(
             'meta',
             'hotel_trend',
@@ -102,24 +108,24 @@ class HotelController extends Controller
     /* Trang Chi Tiết Khách Sạn */
     public function DetailsHotel(Request $request)
     {
-        $hotel = Hotel::where('hotel_id', $request->hotel_id)->first();
+        $hotel             = Hotel::where('hotel_id', $request->hotel_id)->first();
         $hotel->hotel_view = $hotel->hotel_view + 1;
         $hotel->save();
-        $video = GalleryHotel::where('hotel_id', $request->hotel_id)->where('gallery_hotel_type', 2)->first();
+        $video        = GalleryHotel::where('hotel_id', $request->hotel_id)->where('gallery_hotel_type', 2)->first();
         $images_hotel = GalleryHotel::where('hotel_id', $request->hotel_id)->where('gallery_hotel_type', 1)->get();
 
         /* SEO */
         $representative_image = GalleryHotel::where('hotel_id', $request->hotel_id)->where('gallery_hotel_type', 1)->orderby('gallery_hotel_id', 'DESC')->first();
-        $folder = preg_replace('/\s+/', '', $hotel->hotel_name);
+        $folder               = preg_replace('/\s+/', '', $hotel->hotel_name);
 
-        $meta = array(
-            'title' => 'Thông Tin Khách Sạn ' . $hotel->hotel_name . '',
+        $meta = [
+            'title'       => 'Thông Tin Khách Sạn ' . $hotel->hotel_name . '',
             'description' => $hotel->hotel_desc,
-            'keywords' => $hotel->hotel_tag_keyword,
-            'canonical' => request()->url(),
-            'sitename' => 'nhuandeptraivanhanbro.doancoso2.laravel.vn',
-            'image' => URL('public/fontend/assets/img/hotel/gallery_' . $folder . '/' . $representative_image->gallery_hotel_image),
-        );
+            'keywords'    => $hotel->hotel_tag_keyword,
+            'canonical'   => request()->url(),
+            'sitename'    => 'nhuandeptraivanhanbro.doancoso2.laravel.vn',
+            'image'       => URL('public/fontend/assets/img/hotel/gallery_' . $folder . '/' . $representative_image->gallery_hotel_image),
+        ];
         /* END SEO */
 
         /* Lấy Ra Phòng Đề Xuất - Theo Tiêu Chí Phòng Được Đặt Nhiều Nhất - Dựa Vào OrderDetails */
@@ -136,13 +142,12 @@ class HotelController extends Controller
         $rooms = Room::where('hotel_id', $request->hotel_id)->wherenotin('room_id', [$suggested_room->room_id])->get();
 
         /* Lấy Ra Ảnh Của Tất Cả Phòng Trong Khách Sạn */
-        $all_rooms = Room::where('hotel_id', $request->hotel_id)->get();
-        $list_room_id = array();
+        $all_rooms    = Room::where('hotel_id', $request->hotel_id)->get();
+        $list_room_id = [];
         foreach ($all_rooms as $key => $room) {
             $list_room_id[$key] = $room->room_id;
         }
         $gallary_room = GalleryRoom::wherein('room_id', $list_room_id)->get();
-
 
         /* Thời Gian Hiện Tại */
         $TimeNow = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
@@ -163,8 +168,8 @@ class HotelController extends Controller
 
     public function detail_convenient_room(Request $request)
     {
-        $room_id = $request->room_id;
-        $room = Room::where('room_id', $room_id)->first();
+        $room_id      = $request->room_id;
+        $room         = Room::where('room_id', $room_id)->first();
         $gallery_room = GalleryRoom::where('room_id', $room_id)->get();
         if ($room_id) {
             $output = $this->load_convenient_room($room, $gallery_room);
@@ -175,8 +180,8 @@ class HotelController extends Controller
     public function load_convenient_room($room, $gallery_room)
     {
         $type_room = TypeRoom::where('room_id', $room->room_id)->first();
-        $output = '';
-        $folder = preg_replace('/\s+/', '', $room->room_name);
+        $output    = '';
+        $folder    = preg_replace('/\s+/', '', $room->room_name);
         $output .= '
         <div class="box-inforooms">
         <div class="inforooms-left">
@@ -189,7 +194,7 @@ class HotelController extends Controller
                             src="public/fontend/assets/img/hotel/room/gallery_' . $folder . '/' . $v_gallery_room->gallery_room_image . '" alt="' . $v_gallery_room->gallery_room_name . '">
                         </div>';
         }
-        $output .= '   
+        $output .= '
                 </div>
             </div>
         </div>
@@ -399,11 +404,11 @@ class HotelController extends Controller
     public function loading_type_room(Request $request)
     {
         $type_room = TypeRoom::where('room_id', $request->room_id)->paginate(1);
-        $Room = Room::where('room_id', $request->room_id)->first();
-        $hotel_id = $Room['hotel_id'];
-        $TimeNow = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
-        $coupons = Coupon::inRandomOrder()->where('coupon_end_date', '>=', $TimeNow)->where('coupon_start_date', '<=', $TimeNow)->where('coupon_qty_code', '>', 0)->get();
-        $output = '';
+        $Room      = Room::where('room_id', $request->room_id)->first();
+        $hotel_id  = $Room['hotel_id'];
+        $TimeNow   = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
+        $coupons   = Coupon::inRandomOrder()->where('coupon_end_date', '>=', $TimeNow)->where('coupon_start_date', '<=', $TimeNow)->where('coupon_qty_code', '>', 0)->get();
+        $output    = '';
         foreach ($type_room as $typeroom) {
             $coupon_rd = array_rand($coupons->toarray());
             $output .= '
@@ -543,7 +548,7 @@ class HotelController extends Controller
                     <a href="' . URL('dat-phong?hotel_id=' . $hotel_id . '&type_room_id=' . $typeroom->type_room_id) . '">
                     <div id="add-coupon-room" class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-six" data-coupon_name_code =' . $coupons[$coupon_rd]->coupon_name_code . '>
                         <span>Đặt phòng</span>
-                    </div> 
+                    </div>
                     </a>
                     ';
             }
@@ -564,14 +569,14 @@ class HotelController extends Controller
 
     public function sreach_hotel_place(Request $request)
     {
-        $key = $request->key;
+        $key     = $request->key;
         $results = Hotel::join('tbl_area', 'tbl_area.area_id', '=', 'tbl_hotel.area_id')
             ->where(function ($query) use ($key) {
                 $query->where('tbl_hotel.hotel_name', 'like', '%' . $key . '%')
                     ->orWhere('tbl_area.area_name', 'like', '%' . $key . '%');
             })->where(function ($query) {
-                $query->where('tbl_hotel.hotel_status', '=', 1);
-            })->get();
+            $query->where('tbl_hotel.hotel_status', '=', 1);
+        })->get();
 
         $output = '';
         foreach ($results as $result) {
@@ -599,11 +604,33 @@ class HotelController extends Controller
 
     public function message($type, $content)
     {
-        $message = array(
-            "type" => "$type",
+        $message = [
+            "type"    => "$type",
             "content" => "$content",
-        );
+        ];
         session()->flash('message', $message);
     }
 
+    public function putFileMinio(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|max:51200|mimes:pdf,doc,docx,txt',
+        ]);
+        $path = $this->hotelService->putFileMinio($request->file('file'));
+        return response()->json([
+            'status' => 'success',
+            'disk'   => 'minio',
+            'path'   => $path,
+        ]);
+    }
+
+    public function getPolicies(Request $request)
+    {
+        $files = $this->hotelService->getAllPolicyFiles(11);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $files,
+        ]);
+    }
 }

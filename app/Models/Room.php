@@ -1,12 +1,11 @@
 <?php
-
 namespace App\Models;
 
+use App\Models\Coupon;
+use App\Models\TypeRoom;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\TypeRoom;
-use App\Models\Coupon;
-use Carbon\Carbon;
 
 class Room extends Model
 {
@@ -15,37 +14,48 @@ class Room extends Model
     protected $dates = [
         'deleted_at',
     ];
-    public $timestamps = false;
+    public $timestamps  = false;
     protected $fillable = [
-        'hotel_id', 'room_name', 'room_amount_of_people', 'room_acreage', 'room_view', 'room_status', /* Trường Trong Bảng */
+        'hotel_id', 'room_name', 'room_amount_of_people', 'room_acreage', 'room_view', 'room_status', 'facilities', /* Trường Trong Bảng */
     ];
     protected $primaryKey = 'room_id'; /* Khóa Chính */
-    protected $table = 'tbl_room'; /* Tên Bảng */
+    protected $table      = 'tbl_room'; /* Tên Bảng */
+
+    public function getFacilitiesAttribute()
+    {
+        return $this->attributes['facilities'] ? json_decode($this->attributes['facilities'], true) : [];
+    }
+
     public function hotel()
     {
-      return $this->belongsTo('App\Models\Hotel', 'hotel_id');
+        return $this->belongsTo('App\Models\Hotel', 'hotel_id');
     }
-    public function typeroom(){
-        return $this->belongsTo('App\Models\TypeRoom', 'room_id' , 'room_id');
+    public function typeroom()
+    {
+        return $this->belongsTo('App\Models\TypeRoom', 'room_id', 'room_id');
     }
-    public function galleryroom(){
-        return $this->belongsTo('App\Models\GalleryRoom', 'room_id' , 'room_id');
+    public function galleryroom()
+    {
+        return $this->belongsTo('App\Models\GalleryRoom', 'room_id', 'room_id');
     }
-    public function typesroom(){
-        return $this->hasMany('App\Models\TypeRoom', 'room_id' , 'room_id');
+    public function typesroom()
+    {
+        return $this->hasMany('App\Models\TypeRoom', 'room_id', 'room_id');
     }
-    public function galleriesroom(){
-        return $this->hasMany('App\Models\GalleryRoom', 'room_id' , 'room_id');
+    public function galleriesroom()
+    {
+        return $this->hasMany('App\Models\GalleryRoom', 'room_id', 'room_id');
     }
 
-    public function loading_type_room($room_id){
+    public function loading_type_room($room_id)
+    {
 
         $type_room = TypeRoom::where('room_id', $room_id)->get();
-        $Room = Room::where('room_id', $room_id)->first();
-        $hotel_id = $Room['hotel_id'];
-        $TimeNow = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
-        $coupons = Coupon::inRandomOrder()->where('coupon_end_date', '>=', $TimeNow)->where('coupon_start_date', '<=', $TimeNow)->where('coupon_qty_code', '>', 0)->get();
-        $output = '';
+        $Room      = Room::where('room_id', $room_id)->first();
+        $hotel_id  = $Room['hotel_id'];
+        $TimeNow   = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
+        $coupons   = Coupon::inRandomOrder()->where('coupon_end_date', '>=', $TimeNow)->where('coupon_start_date', '<=', $TimeNow)->where('coupon_qty_code', '>', 0)->get();
+        $output    = '';
         foreach ($type_room as $key => $typeroom) {
             $coupon_rd = array_rand($coupons->toarray());
             $output .= '
@@ -53,7 +63,7 @@ class Room extends Model
 
             <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-left">
                 <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-left-Title">
-                    <span>Lựa chọn ' . ($key+1) . '</span>
+                    <span>Lựa chọn ' . ($key + 1) . '</span>
                 </div>
                 <div style="color: #48bb78;"
                     class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-left-Item">
@@ -174,22 +184,22 @@ class Room extends Model
                     </div>
                 </div>
                 ';
-                if($typeroom->type_room_quantity == 0){
-                    $output.='
+            if ($typeroom->type_room_quantity == 0) {
+                $output .= '
                     <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-six">
                         <span>Hết Phòng</span>
                     </div>
                     ';
-                }else{
-                    $output.='
-                    <a href="'.URL('dat-phong?hotel_id='.$hotel_id.'&type_room_id='.$typeroom->type_room_id).'">
-                    <div id="add-coupon-room" class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-six" data-coupon_name_code ='.$coupons[$coupon_rd]->coupon_name_code.'>
+            } else {
+                $output .= '
+                    <a href="' . URL('dat-phong?hotel_id=' . $hotel_id . '&type_room_id=' . $typeroom->type_room_id) . '">
+                    <div id="add-coupon-room" class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-six" data-coupon_name_code =' . $coupons[$coupon_rd]->coupon_name_code . '>
                         <span>Đặt phòng</span>
-                    </div> 
+                    </div>
                     </a>
                     ';
-                }
-               $output.='
+            }
+            $output .= '
                 <div class="chooseroomsbox-boxcontent-bottom-text-BoxTwo-right-seven">
                     <span>Giá cuối cùng</span>
                 </div>

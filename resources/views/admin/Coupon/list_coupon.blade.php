@@ -40,6 +40,7 @@
                         </div>
                     </div>
                 </div>
+                <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -95,6 +96,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     </div>

@@ -35,7 +35,7 @@
                         <label>Tải Ảnh Lên</label>
                         <div>
                             <img style="object-fit: cover; margin: 30px 0px 30px 0px" width="120px" height="120px"
-                                src="{{ URL::to('public/fontend/assets/img/hotel/'.$hotel->hotel_image) }}"
+                                src="{{ $hotel->hotel_image }}"
                                 alt="">
                         </div>
                         <input id="hotel_image" type="file" name="hotel_image" class="file-upload-default">
@@ -131,6 +131,29 @@
                     <div class="form-group">
                         <label for="">Từ Khóa Tìm Kiếm (SEO)</label>
                         <input id="hotel_tag_keyword" type="text" name="hotel_tag_keyword" value="{{ $hotel['hotel_tag_keyword'] }}" class="form-control" id="" placeholder="Link GG Map Địa Điểm Chi Tiết" >
+                        <span class="text-danger form-message"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="">Tiện Ích Khách Sạn</label>
+                        <div class="row mt-2" style="overflow-x: auto; padding-left: 30px;">
+                            @php
+                                $selectedFacilities = is_array($hotel->facilities) ? $hotel->facilities : [];
+                            @endphp
+                            @foreach ($facilities as $facility)
+                                <div class="col-md-4 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                            name="facilities[]" 
+                                            value="{{ $facility->facilitieshotel_id }}" 
+                                            id="facility_hotel_{{ $facility->facilitieshotel_id }}"
+                                            {{ in_array($facility->facilitieshotel_id, $selectedFacilities) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="facility_hotel_{{ $facility->facilitieshotel_id }}" style="word-wrap: break-word;">
+                                            {{ $facility->facilitieshotel_name }}
+                                        </label>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
                         <span class="text-danger form-message"></span>
                     </div>
                     <button type="submit" class="btn btn-gradient-primary me-2 form-hotel-submit">Xác Nhận</button>

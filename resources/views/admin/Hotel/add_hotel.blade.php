@@ -137,6 +137,26 @@
                             </div>
 
                             <div class="form-group">
+                                <label for="">Tiện Ích Khách Sạn</label>
+                                <div class="row mt-2" style="overflow-x: auto; padding-left: 30px;">
+                                    @foreach ($facilities as $facility)
+                                        <div class="col-md-3 mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" 
+                                                    name="facilities[]" 
+                                                    value="{{ $facility->facilitieshotel_id }}" 
+                                                    id="facility_hotel_{{ $facility->facilitieshotel_id }}">
+                                                <label class="form-check-label" for="facility_hotel_{{ $facility->facilitieshotel_id }}" style="word-wrap: break-word;">
+                                                    {{ $facility->facilitieshotel_name }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <span class="text-danger form-message"></span>
+                            </div>
+
+                            <div class="form-group">
                                 <label for="">Hiễn thị</label>
                                 <select class="form-control" name="hotel_status">
                                     <option value="1">Hiện</option>

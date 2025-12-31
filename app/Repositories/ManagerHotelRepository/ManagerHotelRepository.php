@@ -35,7 +35,7 @@ class ManagerHotelRepository extends BaseRepository implements ManagerHotelRepos
     }
     public function insert_item($data,$get_image){
         unset($data['_token']);
-        
+        $data['facilities'] = json_encode($data['facilities'] ?? []);
         // Tách data hotel và manager
         $hotel_data = [
             'hotel_name' => $data['hotel_name'],
@@ -48,7 +48,8 @@ class ManagerHotelRepository extends BaseRepository implements ManagerHotelRepos
             'hotel_jfameplace' => $data['hotel_jfameplace'],
             'hotel_desc' => $data['hotel_desc'],
             'hotel_tag_keyword' => $data['hotel_tag_keyword'],
-            'hotel_status' => $data['hotel_status']
+            'hotel_status' => $data['hotel_status'],
+            'facilities' => $data['facilities']
         ];
         
         $manager_data = [
@@ -111,7 +112,7 @@ class ManagerHotelRepository extends BaseRepository implements ManagerHotelRepos
     }
 
     public function update_item($data,$get_image){
-        
+        $data['facilities'] = json_encode($data['facilities'] ?? []);
         $hotel = $this->find($data['hotel_id']);
         if ($get_image != null) {
             $get_image_name = $get_image->getClientOriginalName(); /* Lấy Tên File */

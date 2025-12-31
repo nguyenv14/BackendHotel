@@ -13,7 +13,7 @@ class AreaService
 {
     public function getAreas(): JsonResponse
     {
-        $areas = Area::all();
+        $areas = Area::query()->where('area_status', 1)->get();
 
         if ($areas->isEmpty()) {
             return ApiResponse::error('Không truy xuất được dữ liệu', 404);

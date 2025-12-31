@@ -78,7 +78,7 @@ class AuthController extends Controller
             'required' => 'Trường :attribute Này Không Được Trống!.'
         ];
         $this->validate($request, $rules, $customMessages);
-        if(Auth::attempt(['admin_email' =>$request->admin_email, 'admin_password' => $request->admin_password])){
+        if(Auth::attempt(['admin_email' => $request->admin_email, 'admin_password' => $request->admin_password])){
             if($request->SaveLoginCooke == "ON"){
                 setcookie("Admin_Email", $request->admin_email, time() + 999999);
                 setcookie("Admin_Password", $request->admin_password, time() + 999999);

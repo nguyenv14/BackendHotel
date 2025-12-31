@@ -37,6 +37,7 @@
                     <!-- Hidden hotel_id -->
                     <input type="hidden" id="hotel_id" value="{{ $hotel->hotel_id }}">
                 </div>
+                <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -102,6 +103,7 @@
                         @endforeach --}}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     </div>

@@ -29,6 +29,7 @@
                         <div class="col-sm-3">
                         </div>
                     </div>
+                    <div class="table-responsive">
                     <table style="margin-top:20px " class="table table-bordered">
                         <thead>
                             <tr>
@@ -45,12 +46,14 @@
                             <td>{{ $orderer->customer->customer_email }}</td>
                         </tbody>
                     </table>
+                    </div>
                 @else
                     <div style="display: flex;justify-content: space-between">
                         <div class="card-title col-sm-9">Thông Tin Khách Hàng Liên Hệ</div>
                         <div class="col-sm-3">
                         </div>
                     </div>
+                    <div class="table-responsive">
                     <table style="margin-top:20px " class="table table-bordered">
                         <thead>
                             <tr>
@@ -65,6 +68,7 @@
                             <td>{{ $orderer['orderer_email'] }}</td>
                         </tbody>
                     </table>
+                    </div>
                 @endif
             </div>
         </div>
@@ -78,6 +82,7 @@
                     <div class="col-sm-3">
                     </div>
                 </div>
+                <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -117,6 +122,7 @@
                     </tbody>
 
                 </table>
+                </div>
             </div>
         </div>
     </div>
@@ -129,6 +135,7 @@
                     <div class="col-sm-3">
                     </div>
                 </div>
+                <div class="table-responsive">
                 <table style="margin-top:20px " class="table table-bordered">
                     <thead>
                         <tr>
@@ -149,6 +156,7 @@
                         </tr>
                     </tbody>
                 </table>
+                </div>
                 <div style="margin-top:20px ">
                     <tr>
                         <td>Phí Khách Sạn : {{ number_format($orderdetails->hotel_fee, 0, ',', '.') }}đ</td><br>

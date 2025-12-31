@@ -2,13 +2,15 @@
 namespace App\Services\Api;
 
 use App\Http\Responses\ApiResponse;
+use App\Models\CompanyConfig;
+use App\Models\ConfigWeb;
 use App\Models\Coupon;
 use App\Models\Evaluate;
+use App\Models\FacilitiesHotel;
 use App\Models\GalleryHotel;
 use App\Models\GalleryRoom;
 use App\Models\Hotel;
 use App\Models\OrderDetails;
-use App\Models\Order;
 use App\Models\Room;
 use App\Models\ServiceCharge;
 use App\Models\TypeRoom;
@@ -17,26 +19,30 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage as FacadesStorage;
+use Nette\Utils\Random;
+use Storage;
 
 class HotelService
 {
-    public function getRoomHotelByID(int $hotel_id,string $checkIn,string $checkOut,int $nights) {
-    $checkInDate  = Carbon::createFromFormat('d-m-Y', $checkIn)->format('Y-m-d');
-    $checkOutDate = Carbon::createFromFormat('d-m-Y', $checkOut)->format('Y-m-d');
+    public function getRoomHotelByID(int $hotel_id, string $checkIn, string $checkOut, int $nights)
+    {
+        $checkInDate  = Carbon::createFromFormat('d-m-Y', $checkIn)->format('Y-m-d');
+        $checkOutDate = Carbon::createFromFormat('d-m-Y', $checkOut)->format('Y-m-d');
 
-    $bookedRoomTypeCount = OrderDetails::query()
-        ->join('tbl_order', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
-        ->where('tbl_order_details.hotel_id', $hotel_id)
-        ->where('start_day', '<', $checkOutDate)   
-        ->where('end_day',   '>', $checkInDate)
-        ->whereNotIn('tbl_order.order_status', [-2, -1])
-        ->groupBy('type_room_id')
-        ->select(
-            'type_room_id',
-            DB::raw('COUNT(*) as booked_count') 
-        )
-        ->get()
-        ->keyBy('type_room_id');
+        $bookedRoomTypeCount = OrderDetails::query()
+            ->join('tbl_order', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+            ->where('tbl_order_details.hotel_id', $hotel_id)
+            ->where('start_day', '<', $checkOutDate)
+            ->where('end_day', '>', $checkInDate)
+            ->whereNotIn('tbl_order.order_status', [-2, -1])
+            ->groupBy('type_room_id')
+            ->select(
+                'type_room_id',
+                DB::raw('COUNT(*) as booked_count')
+            )
+            ->get()
+            ->keyBy('type_room_id');
 
         $rooms = Room::with(['typesroom', 'galleriesroom'])
             ->where('hotel_id', $hotel_id)
@@ -44,7 +50,7 @@ class HotelService
 
         foreach ($rooms as $room) {
             foreach ($room->typesroom as $type) {
-                $bookedCount = $bookedRoomTypeCount[$type->type_room_id]->booked_count ?? 0;
+                $bookedCount                        = $bookedRoomTypeCount[$type->type_room_id]->booked_count ?? 0;
                 $type->type_room_available_quantity = max($type->type_room_quantity - $bookedCount, 0);
             }
         }
@@ -62,13 +68,13 @@ class HotelService
             ->get();
 
         // Chuyển đổi dữ liệu sang format reviews
-        $reviews = $evaluate_hotel->map(function($item) {
+        $reviews = $evaluate_hotel->map(function ($item) {
             // Tính điểm trung bình
-            $totalPoint = $item->evaluate_loaction_point 
-                        + $item->evaluate_service_point
-                        + $item->evaluate_price_point
-                        + $item->evaluate_sanitary_point
-                        + $item->evaluate_convenient_point;
+            $totalPoint = $item->evaluate_loaction_point
+             + $item->evaluate_service_point
+             + $item->evaluate_price_point
+             + $item->evaluate_sanitary_point
+             + $item->evaluate_convenient_point;
 
             $avgPoint = number_format($totalPoint / 5, 1);
 
@@ -83,30 +89,28 @@ class HotelService
                 $ratingLabel = 'Kém';
             }
 
-
             // Lấy tên phòng + số giường
             $roomType = optional($item->room)->room_name;
-            if(optional($item->room->typeroom)->type_room_bed) {
+            if (optional($item->room->typeroom)->type_room_bed) {
                 $roomType .= ' - ' . $item->room->typeroom->type_room_bed . ' giường';
             }
 
             return [
-                'evaluate_id' => $item->evaluate_id,
-                'customer_id' => $item->customer_id,
-                'customer_name' =>  $item->customer_name,
-                'evaluate' => [
-                    'evaluate_title' => $item->evaluate_title,
+                'evaluate_id'   => $item->evaluate_id,
+                'customer_id'   => $item->customer_id,
+                'customer_name' => $item->customer_name,
+                'evaluate'      => [
+                    'evaluate_title'   => $item->evaluate_title,
                     'evaluate_content' => $item->evaluate_content,
-                    'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d/m/Y') : null,
-                    'room_type' => $roomType,
-                    'rating' => $avgPoint,
-                    'rating_label' => $ratingLabel
-                ]
+                    'created_at'       => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d/m/Y') : null,
+                    'room_type'        => $roomType,
+                    'rating'           => $avgPoint,
+                    'rating_label'     => $ratingLabel,
+                ],
             ];
         });
         return ApiResponse::success($reviews);
     }
-
 
     public function getDetailsHotelByID($hotel_id)
     {
@@ -135,6 +139,11 @@ class HotelService
             $item->gallery_hotel_image = $host . '/' . $item->gallery_hotel_image;
             return $item;
         });
+        $facilities = FacilitiesHotel::query()->whereIn('facilitieshotel_id', $hotel->facilities)->get();
+        $hotel->facilities = $facilities->map(function ($item) {
+            return ['facilitieshotel_id' => $item->facilitieshotel_id, 'facilitieshotel_name' => $item->facilitieshotel_name,'facilitieshotel_image' => $item->getFacilitiesHotelImageAttribute()];
+        });
+
         $evaluate = $this->evaluateHotel($hotel_id);
 
         $data = [
@@ -449,7 +458,7 @@ class HotelService
             $avg <= 4 => 'Tuyệt Vời',
             default   => 'Xuất Sắc',
         };
-        return [    
+        return [
             'avg'    => $avg,
             'status' => $status,
             'count'  => $count,
@@ -538,7 +547,7 @@ class HotelService
 
     /**
      * Process and format semantic search results
-     * 
+     *
      * @param array $searchResults Raw search results from AI service
      * @param string $query Original search query
      * @return JsonResponse
@@ -548,11 +557,11 @@ class HotelService
         // If no results from semantic search
         if (empty($searchResults)) {
             Log::warning('Semantic search returned no results', ['query' => $query]);
-            
+
             return ApiResponse::success([
                 'query' => $query,
                 'count' => 0,
-                'items' => []
+                'items' => [],
             ], 'Không tìm thấy kết quả phù hợp. Vui lòng thử lại với từ khóa khác.');
         }
 
@@ -569,7 +578,7 @@ class HotelService
                 return ApiResponse::success([
                     'query' => $query,
                     'count' => 0,
-                    'items' => []
+                    'items' => [],
                 ], 'Không tìm thấy kết quả phù hợp.');
             }
 
@@ -603,17 +612,188 @@ class HotelService
 
             return ApiResponse::success([
                 'count' => count($formattedData),
-                'items' => $formattedData
+                'items' => $formattedData,
             ], 'Tìm kiếm thành công');
 
         } catch (\Exception $e) {
             Log::error('Semantic search processing error', [
                 'query' => $query,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return ApiResponse::error('Lỗi khi xử lý kết quả tìm kiếm: ' . $e->getMessage(), 500);
         }
     }
+
+    public function putFileMinio($file, int $companyId = 11): string
+    {
+        $originalName = pathinfo(
+            $file->getClientOriginalName(),
+            PATHINFO_FILENAME
+        );
+
+        $extension = $file->getClientOriginalExtension();
+
+        $fileName = $originalName
+        . '_' . Carbon::now()->timestamp
+            . '.' . $extension;
+
+        $path = 'hotel/' . $fileName;
+
+        // 1. Upload trước
+        FacadesStorage::disk('minio')->putFileAs(
+            'hotel',
+            $file,
+            $fileName
+        );
+        
+        // 2. Lấy hoặc tạo ConfigWeb record
+        $config = CompanyConfig::where('company_id', $companyId)->first();
+        if (!$config) {
+            // Tạo mới nếu chưa có
+            $config = new CompanyConfig();
+            $config->company_id = $companyId;
+            $config->policies = '[]';
+            $config->save();
+        }
+        
+        $policies = json_decode($config->policies, true) ?? [];
+        // 3. Append policy mới (lưu cả tên đầy đủ có extension)
+        $policies[] = [
+            'name' => $originalName . '.' . $extension,  // Lưu tên đầy đủ có extension
+            'path' => $path,
+        ];
+        $config->policies = json_encode($policies);
+        $config->save();
+        return $path;
+    }
+
+    public function getAllPolicyFiles(int $companyId): array
+    {
+        $config = CompanyConfig::where('company_id', $companyId)->firstOrFail();
+
+        $policies = json_decode($config->policies, true);
+
+        if (! is_array($policies)) {
+            return [];
+        }
+
+        return collect($policies)
+            ->filter(fn($item) => isset($item['name'], $item['path']))
+            ->map(function ($item) {
+                return [
+                    'name' => $item['name'],
+                    'path' => $item['path'],
+                    'url'  => FacadesStorage::disk('minio')->temporaryUrl(
+                        $item['path'],
+                        now()->addMinutes(15)
+                    ),
+                    'parsed' => $item['parsed'] ?? false,
+                    'parsing' => $item['parsing'] ?? false,
+                ];
+            })
+            ->values()
+            ->toArray();
+    }
+
+    public function markPolicyFileAsParsing(int $companyId, string $filePath): bool
+    {
+        try {
+            $config = CompanyConfig::where('company_id', $companyId)->first();
+            if (!$config) {
+                return false;
+            }
+
+            $policies = json_decode($config->policies, true) ?? [];
+            
+            // Find and update the policy file
+            foreach ($policies as &$policy) {
+                if (isset($policy['path']) && $policy['path'] === $filePath) {
+                    $policy['parsing'] = true;
+                    $policy['parsing_at'] = now()->toDateTimeString();
+                    break;
+                }
+            }
+            
+            $config->policies = json_encode($policies);
+            $config->save();
+            
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error marking policy file as parsing', [
+                'company_id' => $companyId,
+                'file_path' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    public function markPolicyFileAsParsed(int $companyId, string $filePath): bool
+    {
+        try {
+            $config = CompanyConfig::where('company_id', $companyId)->first();
+            if (!$config) {
+                return false;
+            }
+
+            $policies = json_decode($config->policies, true) ?? [];
+            
+            // Find and update the policy file
+            foreach ($policies as &$policy) {
+                if (isset($policy['path']) && $policy['path'] === $filePath) {
+                    $policy['parsed'] = true;
+                    $policy['parsing'] = false; // Clear parsing status
+                    $policy['parsed_at'] = now()->toDateTimeString();
+                    break;
+                }
+            }
+            
+            $config->policies = json_encode($policies);
+            $config->save();
+            
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error marking policy file as parsed', [
+                'company_id' => $companyId,
+                'file_path' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    public function clearPolicyFileParsingStatus(int $companyId, string $filePath): bool
+    {
+        try {
+            $config = CompanyConfig::where('company_id', $companyId)->first();
+            if (!$config) {
+                return false;
+            }
+
+            $policies = json_decode($config->policies, true) ?? [];
+            
+            // Find and clear parsing status
+            foreach ($policies as &$policy) {
+                if (isset($policy['path']) && $policy['path'] === $filePath) {
+                    $policy['parsing'] = false;
+                    break;
+                }
+            }
+            
+            $config->policies = json_encode($policies);
+            $config->save();
+            
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error clearing policy file parsing status', [
+                'company_id' => $companyId,
+                'file_path' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
 }
