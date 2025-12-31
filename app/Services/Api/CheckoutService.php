@@ -21,6 +21,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class CheckoutService
 {
@@ -82,6 +83,7 @@ class CheckoutService
     }
     public function orderRoom(array $payload): JsonResponse
     {
+         Log::info('API orderRoom payload:', $payload);
         try {
             return DB::transaction(function () use ($payload) {
                 $typeRoom = TypeRoom::query()
@@ -103,6 +105,24 @@ class CheckoutService
                 if (!$customer instanceof Customers) {
                     return ApiResponse::error('Khách hàng không tồn tại', 404);
                 }
+
+                $availableQuantity = $this->getAvailableQuantity(
+                    $hotel->hotel_id,
+                    $typeRoom->type_room_id,
+                    $payload['startDay'] ?? '',
+                    $payload['endDay'] ?? ''
+                );
+
+
+
+                if ($availableQuantity <= 0) {
+                    return ApiResponse::error('Phòng đã hết', 400);
+                }
+
+                if ($this->hasCustomerBookedRoom($customer->customer_id, $hotel->hotel_id, $typeRoom->type_room_id, $payload['startDay'], $payload['endDay'])) {
+                    return ApiResponse::error('Bạn đã đặt phòng trong thời gian này', 400);
+                }
+
 
                 $coupon = !empty($payload['coupon_id'])
                     ? Coupon::query()->find($payload['coupon_id'])
@@ -168,9 +188,77 @@ class CheckoutService
             });
         } catch (\Throwable $throwable) {
             report($throwable);
-            return ApiResponse::error('Đặt phòng thất bại', 500);
+            return ApiResponse::error('Lỗi bên trong server !', 500);
         }
     }
+
+    public function hasCustomerBookedRoom(
+        int $customerId,
+        int $hotelId,
+        int $typeRoomId,
+        string $checkIn,
+        string $checkOut
+    ): bool {
+        // Chuẩn hoá ngày từ payload (theo format Y-m-d)
+        try {
+            $checkInDate  = Carbon::createFromFormat('Y-m-d', $checkIn)->format('Y-m-d');
+            $checkOutDate = Carbon::createFromFormat('Y-m-d', $checkOut)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return false; // Format sai trả về false
+        }
+
+        // Kiểm tra trong OrderDetails + tbl_order + tbl_orderer
+        $existingBooking = OrderDetails::query()
+            ->join('tbl_order', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+            ->join('tbl_orderer', 'tbl_order.orderer_id', '=', 'tbl_orderer.orderer_id')
+            ->where('tbl_orderer.customer_id', $customerId)
+            ->where('tbl_order_details.hotel_id', $hotelId)
+            ->where('tbl_order_details.type_room_id', $typeRoomId)
+            ->where('start_day', '<', $checkOutDate)
+            ->where('end_day',   '>', $checkInDate)
+            ->whereNotIn('tbl_order.order_status', [-2, -1]) // Loại bỏ cancel/deleted
+            ->exists();
+
+        return $existingBooking;
+    }
+
+    public function getAvailableQuantity(
+    int $hotel_id,
+    int $type_room_id,
+    string $checkIn,
+    string $checkOut
+    ): int {
+        // Chuẩn hoá ngày
+        $checkInDate  = Carbon::createFromFormat('Y-m-d', $checkIn)->format('Y-m-d');
+        $checkOutDate = Carbon::createFromFormat('Y-m-d', $checkOut)->format('Y-m-d');
+
+
+        // Lấy loại phòng
+        $typeRoom = TypeRoom::query()
+            ->where('type_room_id', $type_room_id)
+            ->first();
+
+        if (!$typeRoom) {
+            return 0;
+        }
+
+        // Đếm số phòng đã đặt (trùng ngày)
+        $bookedCount = OrderDetails::query()
+            ->join('tbl_order', 'tbl_order.order_code', '=', 'tbl_order_details.order_code')
+            ->where('tbl_order_details.hotel_id', $hotel_id)
+            ->where('tbl_order_details.type_room_id', $type_room_id)
+            ->where('start_day', '<', $checkOutDate)
+            ->where('end_day',   '>', $checkInDate)
+            ->whereNotIn('tbl_order.order_status', [-2, -1])
+            ->count();
+
+        // Trả về số phòng còn trống
+        return max(
+            $typeRoom->type_room_quantity - $bookedCount,
+            0
+        );
+    }
+
 
     public function orderRestaurant(array $payload): JsonResponse
     {
@@ -265,11 +353,11 @@ class CheckoutService
         }
 
         $servicePrice = 0;
-        if ($serviceCharge) {
-            $servicePrice = (int) $serviceCharge->servicecharge_condition === 1
-                ? ($basePrice * $serviceCharge->servicecharge_fee) / 100
-                : $serviceCharge->servicecharge_fee;
-        }
+        // if ($serviceCharge) {
+        //     $servicePrice = (int) $serviceCharge->servicecharge_condition === 1
+        //         ? ($basePrice * $serviceCharge->servicecharge_fee) / 100
+        //         : $serviceCharge->servicecharge_fee;
+        // }
 
         $couponPrice = 0;
         if ($coupon) {
@@ -385,6 +473,7 @@ class CheckoutService
         TypeRoom $typeRoom,
         array $pricing
     ): OrderDetails {
+        
         $orderDetail = new OrderDetails();
         $orderDetail->order_code = $orderCode;
         $orderDetail->hotel_id = $hotel->hotel_id;
@@ -392,7 +481,11 @@ class CheckoutService
         $orderDetail->room_id = $room->room_id;
         $orderDetail->room_name = $room->room_name;
         $orderDetail->type_room_id = $typeRoom->type_room_id;
-        $orderDetail->price_room = $pricing['final_price'];
+        if($typeRoom->type_room_price_sale == 0){
+            $orderDetail->price_room = $typeRoom->type_room_price;
+        } else {
+            $orderDetail->price_room = $typeRoom->type_room_price - ($typeRoom->type_room_price * $typeRoom->type_room_price_sale / 100);
+        }
         $orderDetail->hotel_fee = $pricing['service_price'];
         $orderDetail->save();
 
