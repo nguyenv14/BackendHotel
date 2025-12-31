@@ -136,7 +136,7 @@
                             <th>Tên Phòng</th>
                             <th>Nhận Phòng</th>
                             <th>Trả Phòng</th>
-                            <th>Giá Phòng</th>
+                            <th>Đơn Giá Phòng</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -154,7 +154,7 @@
                         <td>Phí Khách Sạn : {{ number_format($orderdetails->hotel_fee, 0, ',', '.') }}đ</td><br>
                         <td>Mã Giảm Giá : {{ $orderdetails->order->coupon_name_code }}</td><br>
                         <td>Số Tiền Giảm: {{ number_format( $orderdetails->order->coupon_sale_price, 0, ',', '.') }}đ</td><br>
-                        <td>Tổng Thanh Toán: {{ number_format($orderdetails->price_room + $orderdetails->hotel_fee - $orderdetails->order->coupon_sale_price, 0, ',', '.') }}đ </td>
+                        <td>Tổng Thanh Toán: {{ number_format( $orderdetails->order->total_price, 0, ',', '.') }}đ</td><br>
                     </tr>
                 </div>
 
