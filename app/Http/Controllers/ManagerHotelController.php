@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderDetails;
 use App\Models\Orderer;
 use App\Models\Customers;
+use App\Models\FacilitiesHotel;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -38,7 +39,8 @@ class ManagerHotelController extends Controller
     public function insert_item(){
         $areas = $this->hotelRepo->getArea();
         $brands = $this->hotelRepo->getBrand();
-        return view('admin.Hotel.add_hotel')->with(compact('areas','brands'));
+        $facilities = FacilitiesHotel::where('facilitieshotel_status', 1)->get();
+        return view('admin.Hotel.add_hotel')->with(compact('areas','brands','facilities'));
     }
     public function save_item(Request $request){
         $result = $this->hotelRepo->insert_item($request->all(),$request->file('hotel_image'));
@@ -101,7 +103,8 @@ class ManagerHotelController extends Controller
         $areas = $this->hotelRepo->getArea();
         $brands = $this->hotelRepo->getBrand();
         $hotel = $this->hotelRepo->find($request->hotel_id);
-        return view('admin.Hotel.ManagerHotel.edit_hotel')->with(compact('hotel','areas','brands'));
+        $facilities = FacilitiesHotel::where('facilitieshotel_status', 1)->get();
+        return view('admin.Hotel.ManagerHotel.edit_hotel')->with(compact('hotel','areas','brands','facilities'));
     }
 
     public function update_item(Request $request){

@@ -127,6 +127,9 @@ class CompanyConfigController extends Controller
                 ], 400);
             }
             
+            // Mark file as parsing before dispatch
+            $this->hotelService->markPolicyFileAsParsing($info->company_id, $filePath);
+            
             // Dispatch job to queue
             ParsePolicyFileJob::dispatch($fileUrl, $fileName, $filePath, $info->company_id);
             
@@ -139,7 +142,7 @@ class CompanyConfigController extends Controller
             
             return response()->json([
                 'success' => true,
-                'message' => 'Đã thêm job parse file vào queue. File sẽ được xử lý trong background.'
+                'message' => 'Đã thêm job parse file vào queue. File đang được xử lý...'
             ]);
             
         } catch (\Exception $e) {

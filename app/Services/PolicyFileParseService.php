@@ -27,6 +27,9 @@ class PolicyFileParseService
     public function parseFile(string $fileUrl, string $fileName, string $filePath, int $companyId): array
     {
         try {
+            // Mark file as parsing
+            $this->hotelService->markPolicyFileAsParsing($companyId, $filePath);
+            
             // Get recommendation API URL from env
             $recommendationApiUrl = env('RECOMMENDATION_API_URL', 'http://localhost:5000');
             $parseUrl = $recommendationApiUrl . '/api/documents/parse-file';

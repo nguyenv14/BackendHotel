@@ -17,7 +17,7 @@ class Hotel extends Model
         'hotel_name', 'hotel_rank', 'hotel_type', 'brand_id', 'area_id', 'hotel_image',
         'hotel_price_average',
         'hotel_placedetails', 'hotel_linkplace', 'hotel_jfameplace',
-        'hotel_desc', 'hotel_tag_keyword', 'hotel_view', 'hotel_status', /* Trường Trong Bảng */
+        'hotel_desc', 'hotel_tag_keyword', 'hotel_view', 'hotel_status', 'facilities' /* Trường Trong Bảng */
     ];
     protected $primaryKey = 'hotel_id'; /* Khóa Chính */
     protected $table      = 'tbl_hotel'; /* Tên Bảng */
@@ -25,6 +25,11 @@ class Hotel extends Model
     public function getHotelImageAttribute()
     {
         return $this->attributes['hotel_image'] ? asset('public/fontend/assets/img/hotel/' . $this->attributes['hotel_image']) : null;
+    }
+
+    public function getFacilitiesAttribute()
+    {
+        return $this->attributes['facilities'] ? json_decode($this->attributes['facilities'], true) : [];
     }
 
     public function brand()

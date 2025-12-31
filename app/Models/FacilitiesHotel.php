@@ -19,4 +19,9 @@ class FacilitiesHotel extends Model
    ]; 
    protected $primaryKey =  'facilitieshotel_id'; /* Khóa Chính */
    protected $table =   'tbl_facilitieshotel'; /* Tên Bảng */
+
+   public function getFacilitiesHotelImageAttribute()
+   {
+      return asset('public/fontend/assets/img/facilitieshotel/' . $this->attributes['facilitieshotel_image'] ?? '');
+   }
 }

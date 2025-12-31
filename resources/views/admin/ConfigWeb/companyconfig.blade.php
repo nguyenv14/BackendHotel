@@ -282,9 +282,28 @@
                         
                         if (response.success && response.data && response.data.length > 0) {
                             response.data.forEach(function(file, index) {
-                                const parsedBadge = file.parsed ? 
-                                    '<span class="badge bg-success"><i class="mdi mdi-check-circle"></i> Đã Parse</span>' : 
-                                    '<span class="badge bg-warning"><i class="mdi mdi-clock-outline"></i> Chưa Parse</span>';
+                                let parsedBadge = '';
+                                let parseButton = '';
+                                
+                                if (file.parsed) {
+                                    // Đã Parse
+                                    parsedBadge = '<span class="badge bg-success"><i class="mdi mdi-check-circle"></i> Đã Parse</span>';
+                                    parseButton = '<button type="button" class="btn btn-sm btn-success btn-parse-file" disabled>' +
+                                        '<i class="mdi mdi-file-document-edit"></i> Parse File</button>';
+                                } else if (file.parsing) {
+                                    // Đang Parse
+                                    parsedBadge = '<span class="badge bg-info"><i class="mdi mdi-loading mdi-spin"></i> Đang Parse...</span>';
+                                    parseButton = '<button type="button" class="btn btn-sm btn-success btn-parse-file" disabled>' +
+                                        '<i class="mdi mdi-loading mdi-spin"></i> Đang Parse...</button>';
+                                } else {
+                                    // Chưa Parse
+                                    parsedBadge = '<span class="badge bg-warning"><i class="mdi mdi-clock-outline"></i> Chưa Parse</span>';
+                                    parseButton = '<button type="button" class="btn btn-sm btn-success btn-parse-file" ' +
+                                        'data-file-url="' + file.url + '" ' +
+                                        'data-file-name="' + file.name + '" ' +
+                                        'data-file-path="' + file.path + '">' +
+                                        '<i class="mdi mdi-file-document-edit"></i> Parse File</button>';
+                                }
                                 
                                 const row = `
                                     <tr>
@@ -296,17 +315,24 @@
                                             <a href="${file.url}" target="_blank" class="btn btn-sm btn-info">
                                                 <i class="mdi mdi-download"></i> Tải Xuống
                                             </a>
-                                            <button type="button" class="btn btn-sm btn-success btn-parse-file" 
-                                                    data-file-url="${file.url}" 
-                                                    data-file-name="${file.name}"
-                                                    data-file-path="${file.path}">
-                                                <i class="mdi mdi-file-document-edit"></i> Parse File
-                                            </button>
+                                            ${parseButton}
                                         </td>
                                     </tr>
                                 `;
                                 tbody.append(row);
                             });
+                            
+                            // Start auto-refresh if there are files being parsed
+                            const hasParsingFiles = tbody.find('.badge.bg-info').length > 0;
+                            if (hasParsingFiles) {
+                                startAutoRefresh();
+                            } else {
+                                // Stop auto-refresh if no files are parsing
+                                if (autoRefreshInterval) {
+                                    clearInterval(autoRefreshInterval);
+                                    autoRefreshInterval = null;
+                                }
+                            }
                         } else {
                             tbody.append('<tr><td colspan="5" class="text-center text-muted">Chưa có file nào được upload</td></tr>');
                         }
@@ -323,9 +349,32 @@
             // Load policy files when page loads
             loadPolicyFiles();
 
+            // Auto-refresh file list every 5 seconds if there are files being parsed
+            let autoRefreshInterval = null;
+            function startAutoRefresh() {
+                if (autoRefreshInterval) return;
+                autoRefreshInterval = setInterval(function() {
+                    // Check if there are any files with parsing status
+                    const hasParsingFiles = $('#policyFilesTableBody').find('.badge.bg-info').length > 0;
+                    if (hasParsingFiles) {
+                        loadPolicyFiles();
+                    } else {
+                        // Stop auto-refresh if no files are parsing
+                        if (autoRefreshInterval) {
+                            clearInterval(autoRefreshInterval);
+                            autoRefreshInterval = null;
+                        }
+                    }
+                }, 5000); // Refresh every 5 seconds
+            }
+
             // Parse File Handler
             $(document).on('click', '.btn-parse-file', function() {
                 const btn = $(this);
+                if (btn.prop('disabled')) {
+                    return; // Prevent clicking if already disabled
+                }
+                
                 const fileUrl = btn.data('file-url');
                 const fileName = btn.data('file-name');
                 const filePath = btn.data('file-path');
@@ -354,9 +403,11 @@
                     },
                     success: function(response) {
                         if (response.success) {
-                            message_toastr("success", response.message || "Parse file thành công");
+                            message_toastr("success", response.message || "Đã thêm job parse file vào queue");
                             // Reload file list to update status
                             loadPolicyFiles();
+                            // Start auto-refresh to check parsing status
+                            startAutoRefresh();
                         } else {
                             alert(response.message || 'Parse file thất bại');
                             btn.prop('disabled', false);

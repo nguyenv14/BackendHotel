@@ -60,6 +60,30 @@
                     </div>
                     
                     <div class="form-group">
+                        <label for="">Tiện Ích Phòng</label>
+                        <div class="row mt-2" style="overflow-x: auto; padding-left: 30px;">
+                            @php
+                                $selectedFacilities = is_array($room_old->facilities) ? $room_old->facilities : [];
+                            @endphp
+                            @foreach ($facilities as $facility)
+                                <div class="col-md-3 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                            name="facilities[]" 
+                                            value="{{ $facility->facilitiesroom_id }}" 
+                                            id="facility_room_{{ $facility->facilitiesroom_id }}"
+                                            {{ in_array($facility->facilitiesroom_id, $selectedFacilities) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="facility_room_{{ $facility->facilitiesroom_id }}" style="word-wrap: break-word;">
+                                            {{ $facility->facilitiesroom_name }}
+                                        </label>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        <span class="text-danger form-message"></span>
+                    </div>
+
+                    <div class="form-group">
                         <label for="">Hiễn thị</label>
                         <select class="form-control" name="room_status">
                             @if($room_old->room_status == 0)

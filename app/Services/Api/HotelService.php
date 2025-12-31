@@ -6,6 +6,7 @@ use App\Models\CompanyConfig;
 use App\Models\ConfigWeb;
 use App\Models\Coupon;
 use App\Models\Evaluate;
+use App\Models\FacilitiesHotel;
 use App\Models\GalleryHotel;
 use App\Models\GalleryRoom;
 use App\Models\Hotel;
@@ -138,6 +139,11 @@ class HotelService
             $item->gallery_hotel_image = $host . '/' . $item->gallery_hotel_image;
             return $item;
         });
+        $facilities = FacilitiesHotel::query()->whereIn('facilitieshotel_id', $hotel->facilities)->get();
+        $hotel->facilities = $facilities->map(function ($item) {
+            return ['facilitieshotel_id' => $item->facilitieshotel_id, 'facilitieshotel_name' => $item->facilitieshotel_name,'facilitieshotel_image' => $item->getFacilitiesHotelImageAttribute()];
+        });
+
         $evaluate = $this->evaluateHotel($hotel_id);
 
         $data = [
@@ -684,10 +690,44 @@ class HotelService
                         now()->addMinutes(15)
                     ),
                     'parsed' => $item['parsed'] ?? false,
+                    'parsing' => $item['parsing'] ?? false,
                 ];
             })
             ->values()
             ->toArray();
+    }
+
+    public function markPolicyFileAsParsing(int $companyId, string $filePath): bool
+    {
+        try {
+            $config = CompanyConfig::where('company_id', $companyId)->first();
+            if (!$config) {
+                return false;
+            }
+
+            $policies = json_decode($config->policies, true) ?? [];
+            
+            // Find and update the policy file
+            foreach ($policies as &$policy) {
+                if (isset($policy['path']) && $policy['path'] === $filePath) {
+                    $policy['parsing'] = true;
+                    $policy['parsing_at'] = now()->toDateTimeString();
+                    break;
+                }
+            }
+            
+            $config->policies = json_encode($policies);
+            $config->save();
+            
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error marking policy file as parsing', [
+                'company_id' => $companyId,
+                'file_path' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 
     public function markPolicyFileAsParsed(int $companyId, string $filePath): bool
@@ -704,6 +744,7 @@ class HotelService
             foreach ($policies as &$policy) {
                 if (isset($policy['path']) && $policy['path'] === $filePath) {
                     $policy['parsed'] = true;
+                    $policy['parsing'] = false; // Clear parsing status
                     $policy['parsed_at'] = now()->toDateTimeString();
                     break;
                 }
@@ -715,6 +756,38 @@ class HotelService
             return true;
         } catch (\Exception $e) {
             \Log::error('Error marking policy file as parsed', [
+                'company_id' => $companyId,
+                'file_path' => $filePath,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    public function clearPolicyFileParsingStatus(int $companyId, string $filePath): bool
+    {
+        try {
+            $config = CompanyConfig::where('company_id', $companyId)->first();
+            if (!$config) {
+                return false;
+            }
+
+            $policies = json_decode($config->policies, true) ?? [];
+            
+            // Find and clear parsing status
+            foreach ($policies as &$policy) {
+                if (isset($policy['path']) && $policy['path'] === $filePath) {
+                    $policy['parsing'] = false;
+                    break;
+                }
+            }
+            
+            $config->policies = json_encode($policies);
+            $config->save();
+            
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error clearing policy file parsing status', [
                 'company_id' => $companyId,
                 'file_path' => $filePath,
                 'error' => $e->getMessage()

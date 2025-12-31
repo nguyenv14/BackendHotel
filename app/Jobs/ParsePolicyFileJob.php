@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Services\PolicyFileParseService;
+use App\Services\Api\HotelService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -101,5 +102,15 @@ class ParsePolicyFileJob implements ShouldQueue
             'error' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString()
         ]);
+        
+        // Clear parsing status so user can retry
+        try {
+            $hotelService = app(HotelService::class);
+            $hotelService->clearPolicyFileParsingStatus($this->companyId, $this->filePath);
+        } catch (\Exception $e) {
+            Log::error('Error clearing parsing status after job failure', [
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

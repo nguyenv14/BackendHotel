@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use App\Repositories\RoomRepository\RoomRepositoryInterface;
+use App\Models\FacilitiesRoom;
 
 use Session;
 session_start();
@@ -32,7 +33,8 @@ class RoomController extends Controller
     }
     public function insert_item(Request $request){
         $hotel = $this->roomRepo->getHotel($request->hotel_id);
-        return view('admin.Hotel.ManagerHotel.Room.add_room')->with(compact('hotel'));
+        $facilities = FacilitiesRoom::where('facilitiesroom_status', 1)->get();
+        return view('admin.Hotel.ManagerHotel.Room.add_room')->with(compact('hotel','facilities'));
     }
     public function save_item(Request $request){
         $result = $this->roomRepo->insert_item($request->all());
@@ -41,7 +43,8 @@ class RoomController extends Controller
     public function edit_item(Request $request){
         $room_old = $this->roomRepo->find($request->room_id);
         $hotel = $this->roomRepo->getHotel($request->hotel_id);
-        return view('admin.Hotel.ManagerHotel.Room.edit_room')->with(compact('room_old','hotel'));
+        $facilities = FacilitiesRoom::where('facilitiesroom_status', 1)->get();
+        return view('admin.Hotel.ManagerHotel.Room.edit_room')->with(compact('room_old','hotel','facilities'));
     }
 
     public function update_item(Request $request){
