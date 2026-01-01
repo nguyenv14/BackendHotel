@@ -181,7 +181,7 @@ class FacilitiesHotelRepository extends BaseRepository implements FacilitiesHote
             $output .= '
             </td>
 
-            <td><img style="object-fit: cover" width="40px" height="20px"src="' . URL('public/fontend/assets/img/facilitieshotel/' . $facilitieshotel->facilitieshotel_image) . '"alt=""></td>
+            <td><img style="object-fit: cover" width="40px" height="20px"src="' . URL($facilitieshotel->facilitieshotel_image) . '"alt=""></td>
             <td>' . $facilitieshotel->facilitieshotel_desc . '</td>
             <td>';
             if ($facilitieshotel->facilitieshotel_status == 1) {

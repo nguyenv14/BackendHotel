@@ -47,11 +47,11 @@
                     <div class="form-group">
                         <label for="">Hạng Khách Sạn</label>
                         <select class="form-control" name="hotel_rank">
-                            <option selected value="5">5 Sao</option>
-                            <option value="4">4 Sao</option>
-                            <option value="3">4 Sao</option>
-                            <option value="2">4 Sao</option>
-                            <option value="1">4 Sao</option>
+                            <option value="5" {{ $hotel->hotel_rank == 5 ? 'selected' : '' }}>5 Sao</option>
+                            <option value="4" {{ $hotel->hotel_rank == 4 ? 'selected' : '' }}>4 Sao</option>
+                            <option value="3" {{ $hotel->hotel_rank == 3 ? 'selected' : '' }}>3 Sao</option>
+                            <option value="2" {{ $hotel->hotel_rank == 2 ? 'selected' : '' }}>2 Sao</option>
+                            <option value="1" {{ $hotel->hotel_rank == 1 ? 'selected' : '' }}>1 Sao</option>
                         </select>
                     </div>
                     <div class="form-group">

@@ -120,7 +120,10 @@ class ManagerHotelRepository extends BaseRepository implements ManagerHotelRepos
             $new_image = $image_name . rand(0, 99) . '.' . $get_image->getClientOriginalExtension(); /* getClientOriginalExtension() hàm lấy phần mở rộng của ảnh */
             $get_image->move('public/fontend/assets/img/hotel/', $new_image);
             if($hotel->hotel_image != null){
-                unlink('public/fontend/assets/img/hotel/'. $hotel->hotel_image);
+                $parsed_url = parse_url($hotel->hotel_image);
+                $path = ltrim($parsed_url['path'], '/');
+                $path = str_replace('DoAnCoSo2/public/fontend/assets/img/hotel', 'public/fontend/assets/img/hotel/', $path);
+                unlink($path);
             }
             $data['hotel_image'] = $new_image;
         } 
