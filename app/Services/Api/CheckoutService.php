@@ -150,7 +150,9 @@ class CheckoutService
                     ->where('room_id', $room->room_id)
                     ->first();
 
-                $this->emailOrderToCustomer($orderer, $orderDetail, $order, $pricing['final_price']);
+                // Luôn gửi mail khi tạo đơn (thông báo đơn đang chờ admin xác nhận, KHÔNG có checkin_code)
+                // Sau khi admin duyệt sẽ gửi mail tiếp với checkin_code
+                $this->emailOrderToCustomer($orderer, $orderDetail, $order, $pricing['final_price'], false);
 
                 return ApiResponse::success(
                     $this->formatOrderData(
@@ -289,6 +291,45 @@ class CheckoutService
         ];
     }
 
+    /**
+     * Convert special requirements string to integer code
+     * 0: Không
+     * 1: Phòng không hút thuốc
+     * 2: Phòng ở tầng cao
+     * 3: Phòng không hút thuốc và trên cao
+     */
+    private function convertSpecialRequirements($specialRequirements): int
+    {
+        if (empty($specialRequirements)) {
+            return 0;
+        }
+
+        // Nếu đã là số, trả về luôn
+        if (is_numeric($specialRequirements)) {
+            return (int) $specialRequirements;
+        }
+
+        // Convert string thành lowercase để so sánh
+        $requirements = strtolower(trim($specialRequirements));
+        
+        // Kiểm tra nếu có cả "non-smoking" và "high-floor"
+        if (strpos($requirements, 'non-smoking') !== false && strpos($requirements, 'high-floor') !== false) {
+            return 3; // Phòng không hút thuốc và trên cao
+        }
+        
+        // Kiểm tra từng yêu cầu riêng lẻ
+        if (strpos($requirements, 'non-smoking') !== false) {
+            return 1; // Phòng không hút thuốc
+        }
+        
+        if (strpos($requirements, 'high-floor') !== false) {
+            return 2; // Phòng ở tầng cao
+        }
+
+        // Mặc định là 0 (Không)
+        return 0;
+    }
+
     private function createOrderer(Customers $customer, TypeRoom $typeRoom, array $payload): Orderer
     {
         $orderer = new Orderer();
@@ -297,7 +338,7 @@ class CheckoutService
         $orderer->orderer_phone = $customer->customer_phone;
         $orderer->orderer_email = $customer->customer_email;
         $orderer->orderer_type_bed = $typeRoom->type_room_bed;
-        $orderer->orderer_special_requirements = $payload['order_require'] ?? null;
+        $orderer->orderer_special_requirements = $this->convertSpecialRequirements($payload['order_require'] ?? null);
         $orderer->orderer_own_require = $payload['require_text'] ?? null;
         $orderer->save();
 
@@ -392,7 +433,8 @@ class CheckoutService
         $orderDetail->room_id = $room->room_id;
         $orderDetail->room_name = $room->room_name;
         $orderDetail->type_room_id = $typeRoom->type_room_id;
-        $orderDetail->price_room = $pricing['final_price'];
+        // Lưu base_price vào price_room (giá phòng gốc, chưa có service và coupon)
+        $orderDetail->price_room = $pricing['base_price'];
         $orderDetail->hotel_fee = $pricing['service_price'];
         $orderDetail->save();
 
@@ -411,8 +453,22 @@ class CheckoutService
         $order->end_day = $payload['endDay'] ?? null;
         $order->orderer_id = $orderer->orderer_id;
         $order->payment_id = $payment->payment_id;
-        $order->order_status = 2;
-        $order->order_code = $payload['order_code'] ?? $this->generateHotelCode();
+        
+        // Tạo order_code trước
+        $orderCode = $payload['order_code'] ?? $this->generateHotelCode();
+        $order->order_code = $orderCode;
+        
+        // Tạo mã check-in ngay khi tạo đơn (cho cả 2 trường hợp)
+        $order->checkin_code = $this->generateCheckinCode($orderCode);
+        
+        // Set order_status dựa trên payment_method
+        // payment_method = 4 (Khi Nhận Phòng) → order_status = 0 (Chờ duyệt) - KHÔNG gửi mail, chờ admin duyệt
+        // payment_method = 2 (VNPAY/blockchain) → order_status = 1 (Đã thanh toán, có thể check-in) - GỬI MAIL ngay
+        if ($payment->payment_method == 2 || $payment->payment_method == 3) {
+            $order->order_status = 1; // CHECK_IN
+        } else {
+            $order->order_status = 0; // WAITING_FOR_APPROVAL
+        }
         $order->coupon_name_code = $pricing['coupon_code'];
         $order->coupon_sale_price = $pricing['coupon_price'];
         $order->order_type = 0;
@@ -422,28 +478,66 @@ class CheckoutService
         return $order;
     }
 
-    private function emailOrderToCustomer(Orderer $orderer, OrderDetails $orderDetail, Order $order, float $price): void
+    private function emailOrderToCustomer(Orderer $orderer, OrderDetails $orderDetail, Order $order, float $price, bool $isApproved = false): void
     {
-        $data = [
-            'customer_name' => $orderer->orderer_name,
-            'customer_email' => $orderer->orderer_email,
-            'customer_phone' => $orderer->orderer_phone,
-            'order_details' => $orderDetail,
-            'coupon_price_sale' => $order->coupon_sale_price,
-            'total_payment' => $order->total_price,
-            'total_price' => $price,
-        ];
-
-        $toName = 'MyHotel - Tìm Kiếm Khách Sạn Tại Khu Vực Đà Nẵng';
         $toEmail = $orderer->orderer_email;
-
         if (!$toEmail) {
             return;
         }
 
-        Mail::send('pages.mail', $data, function ($message) use ($toName, $toEmail) {
+        // Lấy thông tin type room
+        $typeRoom = null;
+        if ($orderDetail->type_room_id) {
+            $typeRoom = TypeRoom::where('type_room_id', $orderDetail->type_room_id)->first();
+        }
+
+        // Chuẩn bị order_details dạng array để tương thích với template mail
+        // price_room trong OrderDetails đã là final_price (base + service - coupon)
+        // price_room đã là base_price (giá phòng gốc)
+        // hotel_fee là service_price (phí dịch vụ)
+        // total_price trong order đã là tổng cuối cùng (base_price + service_price - coupon_price)
+        
+        $orderDetailsArray = [
+            'order_code' => $order->order_code,
+            'hotel_name' => $orderDetail->hotel_name,
+            'room_name' => $orderDetail->room_name,
+            'type_room_bed' => $typeRoom ? ($typeRoom->type_room_bed ?? 'N/A') : 'N/A',
+            'type_room_price' => $typeRoom ? ($typeRoom->type_room_price ?? 0) : 0,
+            'type_room_condition' => $typeRoom ? ($typeRoom->type_room_condition ?? 'N/A') : 'N/A',
+            'base_price' => $orderDetail->price_room, // Giá phòng gốc (base_price)
+            'price_room' => $orderDetail->price_room, // Giá phòng gốc (để tương thích)
+            'hotel_fee' => $orderDetail->hotel_fee, // Phí dịch vụ
+            'coupon_name_code' => $order->coupon_name_code ?? 'Không Có',
+            'coupon_price_sale' => $order->coupon_sale_price ?? 0,
+        ];
+
+        // Nếu đã duyệt thì gửi checkin_code, nếu chưa duyệt thì không gửi
+        $checkinCode = $isApproved ? $order->checkin_code : null;
+        $orderStatus = $isApproved ? 0 : $order->order_status; // 0 = đã duyệt, chờ check-in
+
+        $data = [
+            'customer_name' => $orderer->orderer_name,
+            'customer_email' => $orderer->orderer_email,
+            'customer_phone' => $orderer->orderer_phone,
+            'order_details' => $orderDetailsArray,
+            'coupon_price_sale' => $order->coupon_sale_price ?? 0,
+            'total_price' => $order->total_price,
+            'checkin_code' => $checkinCode,
+            'order_status' => $orderStatus,
+        ];
+
+        $toName = 'MyHotel - Tìm Kiếm Khách Sạn Tại Khu Vực Đà Nẵng';
+        
+        // Subject khác nhau tùy vào trạng thái
+        if ($isApproved) {
+            $subject = 'MyHotel - Đơn Hàng Của Bạn Đã Được Duyệt!';
+        } else {
+            $subject = 'MyHotel - Yêu Cầu Đặt Phòng Của Bạn Đã Được Ghi Nhận Và Đang Chờ Xử Lý!';
+        }
+
+        Mail::send('pages.mail', $data, function ($message) use ($toName, $toEmail, $subject) {
             $message->to($toEmail)
-                ->subject('MyHotel - Yêu Cầu Đặt Phòng Của Bạn Đã Được Ghi Nhận Và Đang Chờ Xử Lý!')
+                ->subject($subject)
                 ->from($toEmail, $toName);
         });
     }
@@ -554,6 +648,30 @@ class CheckoutService
     {
         return 'MYHOTEL' . Carbon::now()->format('YmdHis');
     }
+
+    /**
+     * Tạo mã check-in duy nhất cho đơn hàng
+     * 
+     * @param string $order_code
+     * @return string
+     */
+    private function generateCheckinCode($order_code)
+    {
+        // Tạo mã check-in dựa trên order_code và timestamp
+        // Format: CHK + 4 ký tự cuối của order_code + 6 số ngẫu nhiên
+        $orderSuffix = substr($order_code, -4);
+        $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        $checkinCode = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+        
+        // Kiểm tra mã đã tồn tại chưa (rất hiếm nhưng để đảm bảo)
+        while (Order::where('checkin_code', $checkinCode)->exists()) {
+            $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $checkinCode = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+        }
+        
+        return $checkinCode;
+    }
+
     public function getTypeRoomByID($typeroom_id)
     {
         $typeRoom = TypeRoom::with([

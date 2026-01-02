@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Nette\Utils\Random;
 
 // Ngân hàng	NCB
@@ -32,6 +33,45 @@ class VnpayService
         $this->config = config('vnpay', []);
     }
 
+    /**
+     * Convert special requirements string to integer code
+     * 0: Không
+     * 1: Phòng không hút thuốc
+     * 2: Phòng ở tầng cao
+     * 3: Phòng không hút thuốc và trên cao
+     */
+    private function convertSpecialRequirements($specialRequirements): int
+    {
+        if (empty($specialRequirements)) {
+            return 0;
+        }
+
+        // Nếu đã là số, trả về luôn
+        if (is_numeric($specialRequirements)) {
+            return (int) $specialRequirements;
+        }
+
+        // Convert string thành lowercase để so sánh
+        $requirements = strtolower(trim($specialRequirements));
+        
+        // Kiểm tra nếu có cả "non-smoking" và "high-floor"
+        if (strpos($requirements, 'non-smoking') !== false && strpos($requirements, 'high-floor') !== false) {
+            return 3; // Phòng không hút thuốc và trên cao
+        }
+        
+        // Kiểm tra từng yêu cầu riêng lẻ
+        if (strpos($requirements, 'non-smoking') !== false) {
+            return 1; // Phòng không hút thuốc
+        }
+        
+        if (strpos($requirements, 'high-floor') !== false) {
+            return 2; // Phòng ở tầng cao
+        }
+
+        // Mặc định là 0 (Không)
+        return 0;
+    }
+
     private function createOrderer($customer, $typeRoom, $payload)
     {
         $orderer                               = new \App\Models\Orderer();
@@ -40,7 +80,7 @@ class VnpayService
         $orderer->orderer_phone                = $customer->customer_phone;
         $orderer->orderer_email                = $customer->customer_email;
         $orderer->orderer_type_bed             = $typeRoom->type_room_bed;
-        $orderer->orderer_special_requirements = $payload['order_require'] ?? null;
+        $orderer->orderer_special_requirements = $this->convertSpecialRequirements($payload['order_require'] ?? null);
         $orderer->orderer_own_require          = $payload['require_text'] ?? null;
         $orderer->save();
         return $orderer;
@@ -50,12 +90,12 @@ class VnpayService
     {
         $payment                 = new Payment();
         $payment->payment_method = 2; // 2: Thanh toán bằng VNPay
-        $payment->payment_status = 0;
+        $payment->payment_status = 1;
         $payment->save();
         return $payment;
     }
 
-    private function createOrderDetail($orderCode, $hotel, $room, $typeRoom, $finalPrice, $servicePrice)
+    private function createOrderDetail($orderCode, $hotel, $room, $typeRoom, $basePrice, $servicePrice)
     {
         $orderDetail               = new OrderDetails();
         $orderDetail->order_code   = $orderCode;
@@ -64,7 +104,8 @@ class VnpayService
         $orderDetail->room_id      = $room->room_id;
         $orderDetail->room_name    = $room->room_name;
         $orderDetail->type_room_id = $typeRoom->type_room_id;
-        $orderDetail->price_room   = $finalPrice;
+        // Lưu base_price vào price_room (giá phòng gốc, chưa có service và coupon)
+        $orderDetail->price_room   = $basePrice;
         $orderDetail->hotel_fee    = $servicePrice;
         $orderDetail->save();
         return $orderDetail;
@@ -110,8 +151,8 @@ class VnpayService
         $orderer = $this->createOrderer($customer, $typeRoom, $payload);
         // Tạo payment
         $payment = $this->createPayment();
-        // Tạo order detail
-        $orderDetail = $this->createOrderDetail($orderCode, $hotel, $room, $typeRoom, $finalPrice, $servicePrice);
+        // Tạo order detail - truyền basePrice thay vì finalPrice
+        $orderDetail = $this->createOrderDetail($orderCode, $hotel, $room, $typeRoom, $basePrice, $servicePrice);
 
         // Tạo order
         $order                    = new Order();
@@ -119,13 +160,29 @@ class VnpayService
         $order->end_day           = $payload['endDay'] ?? null;
         $order->orderer_id        = $orderer->orderer_id;
         $order->payment_id        = $payment->payment_id;
-        $order->order_status      = 0;
+        
+        // Tạo mã check-in ngay khi tạo đơn (cho cả 2 trường hợp)
+        $order->checkin_code = $this->generateCheckinCode($orderCode);
+        
+        // payment_method = 2 (VNPAY) → order_status = 1 (CHECK_IN) - đã thanh toán, có thể check-in
+        // payment_method = 4 (Khi Nhận Phòng) → order_status = 0 (WAITING_FOR_APPROVAL) - chờ duyệt
+        if ($payment->payment_method == 2) {
+            $order->order_status = 1; // CHECK_IN
+        } else {
+            $order->order_status = 0; // WAITING_FOR_APPROVAL
+        }
+        
         $order->order_code        = $orderCode;
         $order->coupon_name_code  = $coupon?->coupon_name_code ?? 'Không có';
         $order->coupon_sale_price = $couponPrice;
         $order->order_type        = 0;
         $order->total_price       = $finalPrice;
         $order->save();
+        
+        // Luôn gửi mail khi tạo đơn (thông báo đơn đang chờ admin xác nhận, KHÔNG có checkin_code)
+        // Sau khi admin duyệt sẽ gửi mail tiếp với checkin_code
+        $this->sendOrderConfirmationEmail($order, $orderer, false);
+        
         return [$order, null];
     }
 
@@ -161,8 +218,10 @@ class VnpayService
         if ($amount <= 0) {
             return ApiResponse::error('Số tiền thanh toán không hợp lệ', 400);
         }
-        // Resolve return URL
-        $returnUrl = $this->config['return_url'] ?? $this->resolveReturnUrl($request);
+        // Return URL trỏ về frontend để xử lý callback
+        $frontendUrl = env("FRONTEND_URL", "http://localhost:3000");
+        $frontendUrl = rtrim($frontendUrl, '/');
+        $returnUrl = ($frontendUrl . '/payment/vnpay-callback');
         
         // Log để debug
         Log::info('VNPay create payment URL - Config check', [
@@ -233,38 +292,105 @@ class VnpayService
         ], 'Tạo URL thanh toán thành công');
     }
 
-    // Request
-    // {
-    //     "vnp_TxnRef": "ORD20251112001",
-    //     "order_code": "ORD20251112001",
-    //     "vnp_ResponseCode": "00",
-    //     "vnp_TransactionStatus": "00",
-    //   }
-    public function handleReturn(Request $request): JsonResponse
+    /**
+     * Verify và update payment status từ VNPay callback
+     * Frontend sẽ gọi API này sau khi nhận redirect từ VNPay
+     */
+    public function verifyPayment(Request $request): JsonResponse
     {
-        $request = $request->all();
-        //
-        $order = Order::query()->where('order_code', $request['order_code'])->first();
-        if (! $order) {
-            return ApiResponse::error('Đơn hàng không tồn tại', 404);
-        }
-        if ($request['vnp_ResponseCode'] !== '00' || $request['vnp_TransactionStatus'] !== '00') {
-            OrderDetails::query()->where('order_code', $request['order_code'])->delete();
-            Orderer::query()->where('orderer_id', $order->orderer_id)->delete();
-            Payment::query()->where('payment_id', $order->payment_id)->delete();
-            Order::query()->where('order_code', $request['order_code'])->delete();
-            $error = $this->handleReturnStatusPayment($request['vnp_ResponseCode'], $request['vnp_TransactionStatus']);
-            return ApiResponse::error($error['message_response'], 400);
+        $params = $request->all();
+        
+        Log::info('VNPay verify payment request', [
+            'params' => $params,
+            'ip' => $request->ip()
+        ]);
+
+        // 1. Verify signature
+        if (!$this->validateSignature($params)) {
+            Log::error('VNPay verify: Invalid signature', ['params' => $params]);
+            return ApiResponse::error('Chữ ký không hợp lệ', 400);
         }
 
-        Order::query()->where('order_code', $request['order_code'])->update([
-            'order_status' => 1,
-        ]);
-        Payment::query()->where('payment_id', $order->payment_id)->update([
-            'payment_status' => 1,
-        ]);
-        $error = $this->handleReturnStatusPayment($request['vnp_ResponseCode'], $request['vnp_TransactionStatus']);
-        return ApiResponse::success($error['message_response'], 200);
+        // 2. Get order from transaction_id (vnp_TxnRef)
+        $order = $this->getOrderFromCallback($params);
+        if (!$order instanceof Order) {
+            Log::warning('VNPay verify: Order not found', [
+                'vnp_TxnRef' => $params['vnp_TxnRef'] ?? null,
+                'params' => $params
+            ]);
+            return ApiResponse::error('Đơn hàng không tồn tại', 404);
+        }
+
+        // 3. Check amount
+        if (!$this->validateAmount($order, $params)) {
+            Log::warning('VNPay verify: Amount mismatch', [
+                'order_code' => $order->order_code,
+                'order_amount' => $order->total_price,
+                'vnp_Amount' => isset($params['vnp_Amount']) ? ((int) $params['vnp_Amount']) / 100 : null,
+                'params' => $params
+            ]);
+            return ApiResponse::error('Số tiền thanh toán không khớp', 400);
+        }
+
+        // 4. Check transaction status
+        $responseCode = $params['vnp_ResponseCode'] ?? null;
+        $transactionStatus = $params['vnp_TransactionStatus'] ?? null;
+        $isSuccess = $responseCode === '00' && $transactionStatus === '00';
+
+        // 5. Update order status
+        $payment = $order->payment;
+        if (!$payment) {
+            return ApiResponse::error('Không tìm thấy thông tin thanh toán', 404);
+        }
+
+        // Chỉ update nếu chưa được xác nhận
+        if ($payment->payment_status != 1) {
+            if ($isSuccess) {
+                // Update payment status
+                $payment->payment_status = 1;
+                $payment->save();
+
+                // Update order status to CHECK_IN
+                $order->order_status = \App\Http\Enums\OrderStatus::CHECK_IN;
+                $order->save();
+
+                // Đảm bảo có checkin_code
+                if (!$order->checkin_code) {
+                    $order->checkin_code = $this->generateCheckinCode($order->order_code);
+                    $order->save();
+                }
+
+                // Gửi email xác nhận
+                $this->sendOrderConfirmationEmail($order, $order->orderer, true);
+
+                Log::info('VNPay verify: Payment confirmed', [
+                    'order_code' => $order->order_code,
+                    'transaction_no' => $params['vnp_TransactionNo'] ?? null
+                ]);
+            } else {
+                // Payment failed - không xóa order, chỉ log
+                Log::warning('VNPay verify: Payment failed', [
+                    'order_code' => $order->order_code,
+                    'response_code' => $responseCode,
+                    'transaction_status' => $transactionStatus
+                ]);
+            }
+        } else {
+            Log::info('VNPay verify: Payment already confirmed', ['order_code' => $order->order_code]);
+        }
+
+        // 6. Return result
+        $statusMessages = $this->handleReturnStatusPayment($responseCode, $transactionStatus);
+        
+        return ApiResponse::success([
+            'orderCode' => $order->order_code,
+            'success' => $isSuccess,
+            'orderStatus' => $order->order_status,
+            'paymentStatus' => $payment->payment_status,
+            'transactionNo' => $params['vnp_TransactionNo'] ?? null,
+            'message' => $statusMessages['message_response'],
+            'transactionMessage' => $statusMessages['message_status'],
+        ], $isSuccess ? 'Thanh toán thành công' : 'Thanh toán thất bại');
     }
 
     private function handleReturnStatusPayment($code, $status)
@@ -400,7 +526,11 @@ class VnpayService
 
         if ($isSuccess) {
             if (! in_array($orderStatusBefore, [1, 2], true)) {
-                $order->order_status = 1;
+                $order->order_status = 1; // CHECK_IN
+                // Tạo mã check-in khi thanh toán thành công
+                if (!$order->checkin_code) {
+                    $order->checkin_code = $this->generateCheckinCode($order->order_code);
+                }
             }
         } else {
             if ($orderStatusBefore === 0) {
@@ -576,69 +706,102 @@ class VnpayService
     private function buildCallbackUrl(Request $request, string $path): string
     {
         $baseUrl = rtrim(config('app.url') ?? $request->getSchemeAndHttpHost(), '/');
-        return 'http://localhost/DoAnCoSo2/api/vnpay-payment-callback';
+        return $baseUrl . '/api/payment/vnpay-callback';
     }
 
-    public function vnpayPaymentCallback(Request $request): JsonResponse
+
+    /**
+     * Tạo mã check-in duy nhất cho đơn hàng
+     * 
+     * @param string $order_code
+     * @return string
+     */
+    private function generateCheckinCode($order_code)
     {
-        $params = $request->all();
+        // Tạo mã check-in dựa trên order_code và timestamp
+        // Format: CHK + 4 ký tự cuối của order_code + 6 số ngẫu nhiên
+        $orderSuffix = substr($order_code, -4);
+        $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        $checkinCode = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+        
+        // Kiểm tra mã đã tồn tại chưa (rất hiếm nhưng để đảm bảo)
+        while (Order::where('checkin_code', $checkinCode)->exists()) {
+            $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $checkinCode = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+        }
+        
+        return $checkinCode;
+    }
 
-        // Define error code maps
-        $transactionStatusMap = [
-            '00' => 'Giao dịch thành công',
-            '01' => 'Giao dịch chưa hoàn tất',
-            '02' => 'Giao dịch bị lỗi',
-            '04' => 'Giao dịch đảo (Khách hàng đã bị trừ tiền tại Ngân hàng nhưng GD chưa thành công ở VNPAY)',
-            '05' => 'VNPAY đang xử lý giao dịch này (GD hoàn tiền)',
-            '06' => 'VNPAY đã gửi yêu cầu hoàn tiền sang Ngân hàng (GD hoàn tiền)',
-            '07' => 'Giao dịch bị nghi ngờ gian lận',
-            '09' => 'GD Hoàn trả bị từ chối',
-        ];
-        $responseCodeMap = [
-            '00' => 'Giao dịch thành công',
-            '07' => 'Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).',
-            '09' => 'Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng.',
-            '10' => 'Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần',
-            '11' => 'Giao dịch không thành công do: Đã hết hạn chờ thanh toán. Xin quý khách vui lòng thực hiện lại giao dịch.',
-            '12' => 'Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa.',
-            '13' => 'Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP). Xin quý khách vui lòng thực hiện lại giao dịch.',
-            '24' => 'Giao dịch không thành công do: Khách hàng hủy giao dịch',
-            '51' => 'Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch.',
-            '65' => 'Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày.',
-            '75' => 'Ngân hàng thanh toán đang bảo trì.',
-            '79' => 'Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định. Xin quý khách vui lòng thực hiện lại giao dịch',
-            '99' => 'Các lỗi khác (lỗi còn lại, không có trong danh sách mã lỗi đã liệt kê)',
-        ];
-
-        $responseCode      = $params['vnp_ResponseCode'] ?? null;
-        $transactionStatus = $params['vnp_TransactionStatus'] ?? null;
-
-        $responseMessage    = $responseCodeMap[$responseCode] ?? 'Không xác định';
-        $transactionMessage = $transactionStatusMap[$transactionStatus] ?? 'Không xác định';
-
-        $isSuccess = $responseCode === '00' && $transactionStatus === '00';
-
-        if ($isSuccess) {
-            return ApiResponse::success([
-                'orderCode'             => $params['vnp_TxnRef'] ?? null,
-                'transactionNo'         => $params['vnp_TransactionNo'] ?? null,
-                'amount'                => isset($params['vnp_Amount']) ? ((int) $params['vnp_Amount']) / 100 : null,
-                'vnp_ResponseCode'      => $responseCode,
-                'vnp_TransactionStatus' => $transactionStatus,
-                'message'               => $responseMessage,
-                'transactionMessage'    => $transactionMessage,
-            ], 'Thanh toán thành công');
+    /**
+     * Gửi email xác nhận đơn hàng
+     * 
+     * @param Order $order
+     * @param Orderer $orderer
+     * @param bool $isApproved - true nếu đã duyệt (gửi checkin_code), false nếu chưa duyệt (không gửi checkin_code)
+     * @return void
+     */
+    private function sendOrderConfirmationEmail(Order $order, Orderer $orderer, bool $isApproved = false)
+    {
+        if (!$orderer->orderer_email) {
+            return;
         }
 
-        // Return error with mapped message
-        return ApiResponse::error('Thanh toán không thành công', 400, [
-            'orderCode'             => $params['vnp_TxnRef'] ?? null,
-            'transactionNo'         => $params['vnp_TransactionNo'] ?? null,
-            'amount'                => isset($params['vnp_Amount']) ? ((int) $params['vnp_Amount']) / 100 : null,
-            'vnp_ResponseCode'      => $responseCode,
-            'vnp_TransactionStatus' => $transactionStatus,
-            'message'               => $responseMessage,
-            'transactionMessage'    => $transactionMessage,
-        ]);
+        $orderDetail = OrderDetails::where('order_code', $order->order_code)->first();
+        if (!$orderDetail) {
+            return;
+        }
+
+        // Nếu đã duyệt thì gửi checkin_code, nếu chưa duyệt thì không gửi
+        $checkinCode = $isApproved ? $order->checkin_code : null;
+        $orderStatus = $isApproved ? 0 : $order->order_status; // 0 = đã duyệt, chờ check-in
+
+        // Lấy thông tin type room
+        $typeRoom = null;
+        if ($orderDetail->type_room_id) {
+            $typeRoom = TypeRoom::where('type_room_id', $orderDetail->type_room_id)->first();
+        }
+
+        // price_room trong OrderDetails đã là base_price (giá phòng gốc)
+        // hotel_fee là service_price (phí dịch vụ)
+        // total_price trong order đã là tổng cuối cùng (base_price + service_price - coupon_price)
+        
+        $data = [
+            'customer_name' => $orderer->orderer_name,
+            'customer_email' => $orderer->orderer_email,
+            'customer_phone' => $orderer->orderer_phone,
+            'order_details' => [
+                'order_code' => $order->order_code,
+                'hotel_name' => $orderDetail->hotel_name,
+                'room_name' => $orderDetail->room_name,
+                'type_room_bed' => $typeRoom ? ($typeRoom->type_room_bed ?? 'N/A') : 'N/A',
+                'type_room_price' => $typeRoom ? ($typeRoom->type_room_price ?? 0) : 0,
+                'type_room_condition' => $typeRoom ? ($typeRoom->type_room_condition ?? 'N/A') : 'N/A',
+                'base_price' => $orderDetail->price_room, // Giá phòng gốc (base_price)
+                'price_room' => $orderDetail->price_room, // Giá phòng gốc (để tương thích)
+                'hotel_fee' => $orderDetail->hotel_fee, // Phí dịch vụ
+                'coupon_name_code' => $order->coupon_name_code ?? 'Không Có',
+                'coupon_price_sale' => $order->coupon_sale_price ?? 0,
+            ],
+            'coupon_price_sale' => $order->coupon_sale_price ?? 0,
+            'total_price' => $order->total_price,
+            'checkin_code' => $checkinCode,
+            'order_status' => $orderStatus,
+        ];
+
+        $toName = "MyHotel - Tìm Kiếm Khách Sạn Tại Khu Vực Đà Nẵng";
+        $toEmail = $orderer->orderer_email;
+        
+        // Subject khác nhau tùy vào trạng thái
+        if ($isApproved) {
+            $subject = "MyHotel - Đơn Hàng Của Bạn Đã Được Duyệt!";
+        } else {
+            $subject = "MyHotel - Yêu Cầu Đặt Phòng Của Bạn Đã Được Ghi Nhận Và Đang Chờ Xử Lý!";
+        }
+
+        Mail::send('pages.mail', $data, function ($message) use ($toName, $toEmail, $subject) {
+            $message->to($toEmail)->subject($subject);
+            $message->from($toEmail, $toName);
+        });
     }
 }

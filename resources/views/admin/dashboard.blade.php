@@ -167,12 +167,12 @@
 
                         <!-- Apply Button -->
                         <button type="button" class="btn btn-sm btn-gradient-primary px-3" onclick="loadAllCharts()" style="flex-shrink: 0;">
-                            <i class="mdi mdi-filter-variant me-1"></i> Áp Dụng
+                            <i class="mdi mdi-filter-variant me-1"></i>
                         </button>
 
                         <!-- Reset Button -->
                         <button type="button" class="btn btn-sm btn-outline-secondary px-3" onclick="resetFilter()" style="flex-shrink: 0;">
-                            <i class="mdi mdi-refresh me-1"></i> Đặt Lại
+                            <i class="mdi mdi-refresh me-1"></i>
                         </button>
                     </div>
                 </div>

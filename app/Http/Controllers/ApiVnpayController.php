@@ -31,8 +31,8 @@ class ApiVnpayController extends Controller
         return response()->json($result);
     }
 
-    public function vnpayPaymentCallback(Request $request): JsonResponse
+    public function verifyPayment(Request $request): JsonResponse
     {
-        return $this->vnpayService->vnpayPaymentCallback($request);
+        return $this->vnpayService->verifyPayment($request);
     }
 }

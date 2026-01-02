@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Http\Enums\OrderStatus;
 use App\Models\Coupon;
 use App\Models\Hotel;
 use App\Models\ManipulationActivity;
@@ -114,16 +115,21 @@ class OrderController extends Controller
                 $this->orderRepo->getAllByPaginate(5);
 
             case '1': // Chờ xử lý
-                return $query->where('order_status', 0)->orderBy('order_id', 'DESC')->get();
+                return $query->where('order_status', OrderStatus::WAITING_FOR_APPROVAL)->orderBy('order_id', 'DESC')->get();
 
             case '2': // Đã từ chối
-                return $query->where('order_status', -1)->orderBy('order_id', 'DESC')->get();
+                return $query->where('order_status', OrderStatus::CANCELLED_BY_ADMIN)->orderBy('order_id', 'DESC')->get();
 
             case '3': // Đã hủy
-                return $query->where('order_status', -2)->orderBy('order_id', 'DESC')->get();
+                return $query->where('order_status', OrderStatus::CANCELLED_BY_CUSTOMER)->orderBy('order_id', 'DESC')->get();
 
-            case '4': // Đã duyệt/Hoàn thành
-                return $query->whereIn('order_status', [1, 2])->orderBy('order_id', 'DESC')->get();
+            case '4': // Đã duyệt/Check-in/Checkout/Hoàn thành
+                return $query->whereIn('order_status', [
+                    OrderStatus::WAITING_FOR_APPROVAL,
+                    OrderStatus::CHECK_IN,
+                    OrderStatus::CHECK_OUT,
+                    OrderStatus::COMPLETED,
+                ])->orderBy('order_id', 'DESC')->get();
 
             case '5': // Đã thanh toán
                 return $query->join('tbl_payment', 'tbl_payment.payment_id', 'tbl_order.payment_id')
@@ -240,12 +246,19 @@ class OrderController extends Controller
 
         $orderer      = Orderer::where('orderer_id', $order['orderer_id'])->first();
         $orderdetails = OrderDetails::where('order_code', $order['order_code'])->first();
+        $order_full   = $order; // Truyền order đầy đủ để có order_status
+        
+        // Lấy thông tin type room
+        $typeRoom = null;
+        if ($orderdetails && $orderdetails->type_room_id) {
+            $typeRoom = TypeRoom::where('type_room_id', $orderdetails->type_room_id)->first();
+        }
 
         // Admin và hotel_manager dùng view riêng
         if ($this->hasRole($users, 'hotel_manager')) {
-            return view('admin.Hotel.ManagerHotel.Order.view_order')->with(compact('orderer', 'orderdetails'));
+            return view('admin.Hotel.ManagerHotel.Order.view_order')->with(compact('orderer', 'orderdetails', 'order_full', 'typeRoom'));
         } else {
-            return view('admin.Hotel.ManagerHotel.Order.view_order_admin')->with(compact('orderer', 'orderdetails'));
+            return view('admin.Hotel.ManagerHotel.Order.view_order_admin')->with(compact('orderer', 'orderdetails', 'order_full', 'typeRoom'));
         }
     }
 
@@ -254,7 +267,7 @@ class OrderController extends Controller
         $users = auth()->user();
 
         // Kiểm tra quyền truy cập: chỉ admin và hotel_manager
-        if (! $this->hasAnyRole($users, ['admin', 'hotel_manager'])) {
+        if (! $this->hasAnyRole($users, ['admin', 'hotel_manager', 'hotel_staff'])) {
             abort(403, 'Bạn không có quyền truy cập chức năng này');
         }
 
@@ -269,17 +282,29 @@ class OrderController extends Controller
             }
         }
 
-        $order->order_status = $request->order_status;
-        $order->save();
-        /* Còn Thiếu Xử Lý Về Sau Này */
-        if ($request->order_status == 1 || $request->order_status == -1) {
-            // $this->email_order_to_customer($request->order_code , $request->order_status);
-        }
+        $oldStatus = $order->order_status;
 
-        if ($request->order_status == -1) {
-            ManipulationActivity::noteManipulationAdmin("Hủy Đơn Hàng ( Order Code : " . $request->order_code . ")");
+        // Xử lý hủy đơn (status 0 → -1 hoặc -2)
+        if ($request->order_status == OrderStatus::CANCELLED_BY_ADMIN || $request->order_status == OrderStatus::CANCELLED_BY_CUSTOMER) {
+            // Chỉ cho phép hủy khi đơn đang ở trạng thái chờ duyệt (status 0)
+            if ($oldStatus != OrderStatus::WAITING_FOR_APPROVAL) {
+                if ($request->expectsJson() || $request->ajax()) {
+                    echo "error";
+                    return;
+                }
+                return redirect()->back()->with('error', 'Đơn hàng không ở trạng thái có thể hủy');
+            }
 
-            /* Hoàn Lại Số Lượng Mã Giảm Giá (Nếu Có) Và Số Lượng Phòng*/
+            $order->order_status = $request->order_status;
+            $order->save();
+
+            if ($request->order_status == OrderStatus::CANCELLED_BY_ADMIN) {
+                ManipulationActivity::noteManipulationAdmin("Hủy Đơn Hàng ( Order Code : " . $request->order_code . ")");
+            } else {
+                ManipulationActivity::noteManipulationAdmin("Khách Hàng Hủy Đơn Hàng ( Order Code : " . $request->order_code . ")");
+            }
+
+            // Hoàn lại số lượng mã giảm giá và phòng
             if ($order['coupon_name_code'] != 'Không có') {
                 $coupon                  = Coupon::where('coupon_name_code', $order['coupon_name_code'])->first();
                 $coupon->coupon_qty_code = $coupon->coupon_qty_code + 1;
@@ -288,46 +313,166 @@ class OrderController extends Controller
             $type_room                     = TypeRoom::where('type_room_id', $order->orderdetails->type_room_id)->first();
             $type_room->type_room_quantity = $type_room->type_room_quantity + 1;
             $type_room->save();
-            /* Hàm Tính Doanh Thu */
-            $this->statistical();
-            echo "refuse";
-        } else if ($request->order_status == 1) {
-            $payment                 = Payment::where('payment_id', $order->payment_id)->first();
-            $payment->payment_status = 1;
-            $payment->save();
+
+            if ($request->expectsJson() || $request->ajax()) {
+                echo "refuse";
+                return;
+            }
+            return redirect()->back()->with('success', 'Đơn hàng đã được hủy');
+        }
+
+        // Xử lý duyệt đơn (status 0 → 1)
+        if ($request->order_status == OrderStatus::WAITING_FOR_APPROVAL) {
+            // Chỉ cho phép duyệt khi đơn đang ở trạng thái chờ duyệt (status 0)
+            if ($oldStatus != OrderStatus::WAITING_FOR_APPROVAL) {
+                if ($request->expectsJson() || $request->ajax()) {
+                    echo "error";
+                    return;
+                }
+                return redirect()->back()->with('error', 'Đơn hàng không ở trạng thái có thể duyệt');
+            }
+
+            // Tạo mã check-in nếu chưa có
+            if (! $order->checkin_code) {
+                $order->checkin_code = $this->generateCheckinCode($order->order_code);
+            }
+
+            // Cập nhật status từ 0 → 1 (CHECK_IN)
+            $order->order_status = OrderStatus::CHECK_IN;
+            $order->save();
+
+            // Cập nhật payment status nếu có
+            $payment = Payment::where('payment_id', $order->payment_id)->first();
+            if ($payment && $payment->payment_status == 0) {
+                $payment->payment_status = 1;
+                $payment->save();
+            }
+
             ManipulationActivity::noteManipulationAdmin("Duyệt Đơn Hàng ( Order Code : " . $request->order_code . ")");
-            /* Hàm Tính Doanh Thu */
-            $this->statistical();
-            echo "browser";
+
+            // Gửi email với checkin_code
+            $this->email_order_to_customer($request->order_code, OrderStatus::CHECK_IN);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                echo "browser";
+                return;
+            }
+            return redirect()->back()->with('success', 'Đơn hàng đã được duyệt thành công');
+        }
+
+        // Xử lý các trường hợp khác (checkout, complete, etc.)
+        // Chỉ cập nhật nếu status thay đổi
+        if ($oldStatus != $request->order_status) {
+            // Kiểm tra luồng hợp lệ:
+            // - Status 1 (CHECK_IN) → Status 2 (CHECK_OUT) → Status 3 (COMPLETED)
+            // - Status 1 (CHECK_IN) → Status 4 (NO_SHOW) (tự động bởi cron)
+            $validTransitions = [
+                OrderStatus::CHECK_IN => [OrderStatus::CHECK_OUT, OrderStatus::NO_SHOW],
+                OrderStatus::CHECK_OUT => [OrderStatus::COMPLETED],
+            ];
+            if (isset($validTransitions[$oldStatus])) {
+                if (! in_array($request->order_status, $validTransitions[$oldStatus])) {
+                    echo "error";
+                    return;
+                }
+            }
+            $order->order_status = $request->order_status;
+            $order->save();
+            // Ghi log cho các thao tác quan trọng
+            if ($request->order_status == OrderStatus::CHECK_OUT) {
+                ManipulationActivity::noteManipulationAdmin("Check-out Đơn Hàng ( Order Code : " . $request->order_code . ")");
+            } elseif ($request->order_status == OrderStatus::COMPLETED) {
+                ManipulationActivity::noteManipulationAdmin("Hoàn Thành Đơn Hàng ( Order Code : " . $request->order_code . ")");
+                // Tính lại doanh thu khi hoàn thành
+                $this->statistical();
+            }
         }
     }
 
     public function email_order_to_customer($order_code, $order_status)
     {
-
-        $order        = Order::where('order_code', $order_code)->first();
-        $orderdetails = OrderDetails::where('order_code', $order_code)->get();
-
-        if ($order_status == 1) {
-            $type    = "Đơn Hàng " . $order->order_code . " Đã Được Duyệt !";
-            $subject = "Đồ Án Cơ Sở 2 - Đơn Hàng Của Bạn Đã Được Duyệt !";
-        } else if ($order_status == -1) {
-            $type    = "Đơn Hàng " . $order->order_code . " Đã Bị Từ Chối !";
-            $subject = "Đồ Án Cơ Sở 2 - Đơn Hàng Của Bạn Đã Bị Từ Chối !";
+        $order = Order::where('order_code', $order_code)->first();
+        if (! $order) {
+            return;
         }
 
-        $to_name  = "Lê Khả Nhân - Mail Laravel";
-        $to_email = $order->shipping->shipping_email;
+        $orderdetails = OrderDetails::where('order_code', $order_code)->get();
+        $orderer      = Orderer::where('orderer_id', $order->orderer_id)->first();
 
-        $data = [
-            "type"         => $type,
-            "order"        => $order,
-            "orderdetails" => $orderdetails,
-        ];
-        Mail::send('admin.Order.email_order_to_customer', $data, function ($message) use ($to_name, $to_email, $subject) {
-            $message->to($to_email)->subject($subject); //send this mail with subject
-            $message->from($to_email, $to_name);        //send from this mail
-        });
+        if (! $orderer || ! $orderer->orderer_email) {
+            return;
+        }
+
+        // Khi duyệt đơn (status = CHECK_IN): gửi mail với checkin_code
+        if ($order_status == OrderStatus::CHECK_IN) {
+            $orderDetail = $orderdetails->first();
+            if (! $orderDetail) {
+                return;
+            }
+
+            // Lấy thông tin type room
+            $typeRoom = null;
+            if ($orderDetail->type_room_id) {
+                $typeRoom = TypeRoom::where('type_room_id', $orderDetail->type_room_id)->first();
+            }
+
+            // Chuẩn bị order_details dạng array để tương thích với template mail
+            // price_room trong OrderDetails đã là base_price (giá phòng gốc)
+            // hotel_fee là service_price (phí dịch vụ)
+            // total_price trong order đã là tổng cuối cùng (base_price + service_price - coupon_price)
+
+            $orderDetailsArray = [
+                'order_code'        => $order->order_code,
+                'hotel_name'        => $orderDetail->hotel_name,
+                'room_name'         => $orderDetail->room_name,
+                'type_room_bed'     => $typeRoom ? ($typeRoom->type_room_bed ?? 'N/A') : 'N/A',
+                'type_room_price'   => $typeRoom ? ($typeRoom->type_room_price ?? 0) : 0,
+                'type_room_condition' => $typeRoom ? ($typeRoom->type_room_condition ?? 'N/A') : 'N/A',
+                'base_price'        => $orderDetail->price_room, // Giá phòng gốc (base_price)
+                'price_room'        => $orderDetail->price_room, // Giá phòng gốc (để tương thích)
+                'hotel_fee'         => $orderDetail->hotel_fee,  // Phí dịch vụ
+                'coupon_name_code'  => $order->coupon_name_code ?? 'Không Có',
+                'coupon_price_sale' => $order->coupon_sale_price ?? 0,
+            ];
+
+            $data = [
+                'customer_name'     => $orderer->orderer_name,
+                'customer_email'    => $orderer->orderer_email,
+                'customer_phone'    => $orderer->orderer_phone,
+                'order_details'     => $orderDetailsArray,
+                'coupon_price_sale' => $order->coupon_sale_price ?? 0,
+                'total_price'       => $order->total_price,
+                'checkin_code'      => $order->checkin_code, // Gửi checkin_code khi đã duyệt
+                'order_status'      => OrderStatus::CHECK_IN, // Status = 1 (CHECK_IN)
+            ];
+
+            $to_name  = "MyHotel - Tìm Kiếm Khách Sạn Tại Khu Vực Đà Nẵng";
+            $to_email = $orderer->orderer_email;
+            $subject  = "MyHotel - Đơn Hàng Của Bạn Đã Được Duyệt!";
+
+            Mail::send('pages.mail', $data, function ($message) use ($to_name, $to_email, $subject) {
+                $message->to($to_email)->subject($subject);
+                $message->from($to_email, $to_name);
+            });
+        } else if ($order_status == OrderStatus::CANCELLED_BY_ADMIN) {
+            // Khi từ chối đơn: gửi mail thông báo từ chối
+            $type    = "Đơn Hàng " . $order->order_code . " Đã Bị Từ Chối !";
+            $subject = "Đồ Án Cơ Sở 2 - Đơn Hàng Của Bạn Đã Bị Từ Chối !";
+
+            $to_name  = "Lê Khả Nhân - Mail Laravel";
+            $to_email = $orderer->orderer_email;
+
+            $data = [
+                "type"         => $type,
+                "order"        => $order,
+                "orderdetails" => $orderdetails,
+                "order_status" => $order_status,
+            ];
+            Mail::send('admin.Order.email_order_to_customer', $data, function ($message) use ($to_name, $to_email, $subject) {
+                $message->to($to_email)->subject($subject);
+                $message->from($to_email, $to_name);
+            });
+        }
     }
 
     /**
@@ -396,7 +541,15 @@ class OrderController extends Controller
         $order                 = Order::where('created_at', 'like', $now . '%')->get();
         $statical->total_order = $order->count();
 
-        $order_completion = Order::where('created_at', 'like', $now . '%')->where('order_status', 1)->get();
+        // Tính doanh thu cho các đơn đã được duyệt (status = 0, 1, 2, 3) - đã thanh toán
+        $order_completion = Order::where('created_at', 'like', $now . '%')
+            ->whereIn('order_status', [
+                OrderStatus::WAITING_FOR_APPROVAL,
+                OrderStatus::CHECK_IN,
+                OrderStatus::CHECK_OUT,
+                OrderStatus::COMPLETED,
+            ])
+            ->get();
 
         if ($order_completion->count()) {
             $sales               = 0;
@@ -419,8 +572,8 @@ class OrderController extends Controller
 
         $order_ref = Order::where('created_at', 'like', $now . '%')
             ->where(function ($query) {
-                $query->where('order_status', -1)
-                    ->orwhere('order_status', -2);
+                $query->where('order_status', OrderStatus::CANCELLED_BY_ADMIN)
+                    ->orwhere('order_status', OrderStatus::CANCELLED_BY_CUSTOMER);
             })->get();
 
         if ($order_ref->count()) {
@@ -442,4 +595,183 @@ class OrderController extends Controller
         $statical->save();
         // }
     }
+
+    /**
+     * Tạo mã check-in duy nhất cho đơn hàng
+     *
+     * @param string $order_code
+     * @return string
+     */
+    private function generateCheckinCode($order_code)
+    {
+        // Tạo mã check-in dựa trên order_code và timestamp
+        // Format: CHK + 4 ký tự cuối của order_code + 6 số ngẫu nhiên
+        $orderSuffix  = substr($order_code, -4);
+        $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        $checkinCode  = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+
+        // Kiểm tra mã đã tồn tại chưa (rất hiếm nhưng để đảm bảo)
+        while (Order::where('checkin_code', $checkinCode)->exists()) {
+            $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $checkinCode  = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+        }
+
+        return $checkinCode;
+    }
+
+    /**
+     * Check-in đơn hàng (admin/hotel_manager) - Form submit
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function admin_checkin_order(Request $request)
+    {
+        $users = auth()->user();
+
+        // Kiểm tra quyền truy cập
+        if (! $this->hasAnyRole($users, ['admin', 'hotel_manager', 'hotel_staff'])) {
+            return redirect()->back()->with('error', 'Bạn không có quyền thực hiện thao tác này');
+        }
+
+        $request->validate([
+            'order_code' => 'required',
+            'checkin_code' => 'required',
+        ]);
+
+        $order = Order::where('order_code', $request->order_code)->first();
+
+        if (! $order) {
+            return redirect()->back()->with('error', 'Không tìm thấy đơn hàng');
+        }
+
+        // Kiểm tra quyền cập nhật order cụ thể
+        if ($this->hasRole($users, 'hotel_manager') || $this->hasRole($users, 'hotel_staff')) {
+            $orderdetails = OrderDetails::where('order_code', $order->order_code)->first();
+            if ($orderdetails->hotel_id != $users->hotel_id) {
+                return redirect()->back()->with('error', 'Bạn không có quyền cập nhật order này');
+            }
+        }
+
+        // Kiểm tra mã check-in
+        if ($order->checkin_code != $request->checkin_code) {
+            return redirect()->back()->with('error', 'Mã check-in không đúng');
+        }
+
+        // Chỉ có thể check-in khi status = 1 (CHECK_IN - đã duyệt, chờ check-in)
+        if ($order->order_status != OrderStatus::CHECK_IN) {
+            return redirect()->back()->with('error', 'Đơn hàng không ở trạng thái có thể check-in');
+        }
+
+        // Check-in thành công - cập nhật trạng thái từ 1 (CHECK_IN) sang 2 (CHECK_OUT)
+        $order->order_status = OrderStatus::CHECK_OUT;
+        $order->save();
+
+        ManipulationActivity::noteManipulationAdmin("Check-in Đơn Hàng ( Order Code : " . $request->order_code . ")");
+
+        return redirect()->back()->with('success', 'Check-in thành công');
+    }
+
+    /**
+     * Check-out đơn hàng (admin/hotel_manager) - Form submit
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function admin_checkout_order(Request $request)
+    {
+        $users = auth()->user();
+
+        // Kiểm tra quyền truy cập
+        if (! $this->hasAnyRole($users, ['admin', 'hotel_manager', 'hotel_staff'])) {
+            return redirect()->back()->with('error', 'Bạn không có quyền thực hiện thao tác này');
+        }
+
+        $request->validate([
+            'order_code' => 'required',
+        ]);
+
+        $order = Order::where('order_code', $request->order_code)->first();
+
+        if (! $order) {
+            return redirect()->back()->with('error', 'Không tìm thấy đơn hàng');
+        }
+
+        // Kiểm tra quyền cập nhật order cụ thể
+        if ($this->hasRole($users, 'hotel_manager') || $this->hasRole($users, 'hotel_staff')) {
+            $orderdetails = OrderDetails::where('order_code', $order->order_code)->first();
+            if ($orderdetails->hotel_id != $users->hotel_id) {
+                return redirect()->back()->with('error', 'Bạn không có quyền cập nhật order này');
+            }
+        }
+
+        // Chỉ có thể check-out khi status = 2 (CHECK_OUT - đã check-in xong)
+        if ($order->order_status != OrderStatus::CHECK_OUT) {
+            return redirect()->back()->with('error', 'Đơn hàng không ở trạng thái có thể check-out. Vui lòng check-in trước.');
+        }
+
+        // Check-out thành công - cập nhật trạng thái từ 2 (CHECK_OUT) sang 3 (COMPLETED)
+        $order->order_status = OrderStatus::COMPLETED;
+        $order->save();
+
+        ManipulationActivity::noteManipulationAdmin("Check-out Đơn Hàng ( Order Code : " . $request->order_code . ")");
+
+        /* Hàm Tính Doanh Thu */
+        $this->statistical();
+
+        return redirect()->back()->with('success', 'Check-out thành công');
+    }
+
+    /**
+     * Hoàn thành đơn hàng (admin/hotel_manager) - Form submit
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function admin_complete_order(Request $request)
+    {
+        $users = auth()->user();
+
+        // Kiểm tra quyền truy cập
+        if (! $this->hasAnyRole($users, ['admin', 'hotel_manager', 'hotel_staff'])) {
+            return redirect()->back()->with('error', 'Bạn không có quyền thực hiện thao tác này');
+        }
+
+        $request->validate([
+            'order_code' => 'required',
+        ]);
+
+        $order = Order::where('order_code', $request->order_code)->first();
+
+        if (! $order) {
+            return redirect()->back()->with('error', 'Không tìm thấy đơn hàng');
+        }
+
+        // Kiểm tra quyền cập nhật order cụ thể
+        if ($this->hasRole($users, 'hotel_manager') || $this->hasRole($users, 'hotel_staff')) {
+            $orderdetails = OrderDetails::where('order_code', $order->order_code)->first();
+            if ($orderdetails->hotel_id != $users->hotel_id) {
+                return redirect()->back()->with('error', 'Bạn không có quyền cập nhật order này');
+            }
+        }
+
+        // Chỉ có thể hoàn thành khi status = 3 (COMPLETED - đã checkout)
+        // Thực ra status 3 đã là completed rồi, nên hàm này có thể không cần thiết
+        // Nhưng giữ lại để tương thích
+        if ($order->order_status == OrderStatus::COMPLETED) {
+            return redirect()->back()->with('info', 'Đơn hàng đã được hoàn thành rồi');
+        }
+
+        // Hoàn thành đơn hàng
+        $order->order_status = OrderStatus::COMPLETED;
+        $order->save();
+
+        ManipulationActivity::noteManipulationAdmin("Hoàn Thành Đơn Hàng ( Order Code : " . $request->order_code . ")");
+
+        /* Hàm Tính Doanh Thu */
+        $this->statistical();
+
+        return redirect()->back()->with('success', 'Đơn hàng đã được hoàn thành');
+    }
 }
+

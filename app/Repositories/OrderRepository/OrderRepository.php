@@ -6,6 +6,7 @@ use App\Models\ManipulationActivity;
 use App\Models\Payment;
 use App\Models\Orderer;
 use App\Models\OrderDetails;
+use App\Http\Enums\OrderStatus;
 use Illuminate\Support\Facades\Auth;
 class OrderRepository extends BaseRepository implements OrderRepositoryInterface
 {
@@ -95,41 +96,66 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
           <td>'. $value_order->start_day.'</td>
           <td>'. $value_order->end_day.'</td>
           <td>';
-              if($value_order->order_status == 0){
+              if($value_order->order_status == OrderStatus::WAITING_FOR_APPROVAL){
                   $output .= '<span class="text-info"><b>Đang Chờ Duyệt</b></span>';
-              }else if($value_order->order_status == -1) {
+              }else if($value_order->order_status == OrderStatus::CANCELLED_BY_ADMIN) {
                   $output .= '<span class="text-danger"><b>Đơn Phòng Bị Từ Chối</b></span>';
-              }else if($value_order->order_status == -2) {
+              }else if($value_order->order_status == OrderStatus::CANCELLED_BY_CUSTOMER) {
                     $output .= '<span class="text-danger"><b>Khách Hàng Hủy Đơn</b></span>';
-                }else if($value_order->order_status == 1 || $value_order->order_status == 2) {
-                      $output .= '<span class="text-warning"><b>Hoàn Thành Đơn Phòng</b></span>';
+              }else if($value_order->order_status == OrderStatus::CHECK_IN) {
+                    $output .= '<span class="text-primary"><b>Đang Đợi Check-in</b></span>';
+              }else if($value_order->order_status == OrderStatus::CHECK_OUT) {
+                    $output .= '<span class="text-warning"><b>Đã Check-in, Chờ Check-out</b></span>';
+              }else if($value_order->order_status == OrderStatus::COMPLETED) {
+                    $output .= '<span class="text-success"><b>Đã Hoàn Thành</b></span>';
+              }else if($value_order->order_status == OrderStatus::NO_SHOW) {
+                    $output .= '<span class="text-danger"><b>No Show</b></span>';
               }
           $output .= '
           </td>
           <td>';
-          if($value_order->payment->payment_method == 4){
-              $output .= 'Khi Nhận Phòng';
-          }else if($value_order->payment->payment_method == 1){
-              $output .= 'Thanh Toán Momo';
+          if($value_order->payment) {
+              if($value_order->payment->payment_method == 4){
+                  $output .= 'Khi Nhận Phòng';
+              }else if($value_order->payment->payment_method == 1){
+                  $output .= 'Thanh Toán Momo';
+              }else if($value_order->payment->payment_method == 2){
+                  $output .= 'Thanh Toán VNPAY';
+              }else{
+                  $output .= 'N/A';
+              }
+          } else {
+              $output .= 'N/A';
           }
           $output .= '
           </td>
           <td>';
-          if($value_order->payment->payment_status == 0){
-              $output .= 'Chưa Thanh Toán';
-          }else if($value_order->payment->payment_status == 1){
-              $output .= 'Đã Thanh Toán';
+          if($value_order->payment) {
+              if($value_order->payment->payment_status == 0){
+                  $output .= 'Chưa Thanh Toán';
+              }else if($value_order->payment->payment_status == 1){
+                  $output .= 'Đã Thanh Toán';
+              }else{
+                  $output .= 'N/A';
+              }
+          } else {
+              $output .= 'N/A';
           }
           $output .= '
           </td>
           <td>'. $value_order->created_at.'</td>
           <td>';
-          if($value_order->order_status == 0){
+          if($value_order->order_status == OrderStatus::WAITING_FOR_APPROVAL){
           $output .= '
-          <button style="margin-top:10px" class="btn-sm btn-gradient-success btn-rounded btn-fw btn-order-status" data-order_code="'.$value_order->order_code.'" data-order_status="1">Duyệt Đơn <i class="mdi mdi-calendar-check"></i></button> <br>
-          <button style="margin-top:10px" class="btn-sm btn-gradient-danger btn-fw btn-order-status"  data-order_code="'.$value_order->order_code.'" data-order_status="-1" >Từ Chối <i class="mdi mdi-calendar-remove"></i></button> <br>';
+          <button style="margin-top:10px" class="btn-sm btn-gradient-success btn-rounded btn-fw btn-order-status" data-order_code="'.$value_order->order_code.'" data-order_status="' . OrderStatus::WAITING_FOR_APPROVAL . '">Duyệt Đơn <i class="mdi mdi-calendar-check"></i></button> <br>
+          <button style="margin-top:10px" class="btn-sm btn-gradient-danger btn-fw btn-order-status"  data-order_code="'.$value_order->order_code.'" data-order_status="' . OrderStatus::CANCELLED_BY_ADMIN . '" >Từ Chối <i class="mdi mdi-calendar-remove"></i></button> <br>';
           }
-          if($value_order->order_status == -1 || $value_order->order_status == 1 || $value_order->order_status == 2 || $value_order->order_status == -2){
+          if(in_array($value_order->order_status, [
+              OrderStatus::CANCELLED_BY_ADMIN,
+              OrderStatus::CHECK_IN,
+              OrderStatus::CHECK_OUT,
+              OrderStatus::CANCELLED_BY_CUSTOMER
+          ])){
             $user = Auth::user();
             if($user->roles()->whereIn('roles_name', ['admin','manager'])->exists()) {
                 $output .= '<button type="button" class="btn-sm btn-gradient-danger btn-icon-text btn-delete-item mt-2" data-item_id = "'. $value_order->order_id.'">
@@ -158,31 +184,51 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
           <td>'. $value_order->start_day.'</td>
           <td>'. $value_order->end_day.'</td>
           <td>';
-              if($value_order->order_status == 0){
+              if($value_order->order_status == OrderStatus::WAITING_FOR_APPROVAL){
                   $output .= '<span class="text-info"><b>Đang Chờ Duyệt</b></span>';
-              }else if($value_order->order_status == -1) {
+              }else if($value_order->order_status == OrderStatus::CANCELLED_BY_ADMIN) {
                   $output .= '<span class="text-danger"><b>Đơn Phòng Bị Từ Chối</b></span>';
-              }else if($value_order->order_status == -2) {
+              }else if($value_order->order_status == OrderStatus::CANCELLED_BY_CUSTOMER) {
                 $output .= '<span class="text-danger"><b>Khách Hàng Hủy Đơn</b></span>';
               }
-              else if($value_order->order_status == 1 || $value_order->order_status == 2) {
-                  $output .= '<span class="text-warning"><b>Hoàn Thành Đơn Phòng</b></span>';
+              else if($value_order->order_status == OrderStatus::CHECK_IN) {
+                  $output .= '<span class="text-primary"><b>Đang Đợi Check-in</b></span>';
+              }else if($value_order->order_status == OrderStatus::CHECK_OUT) {
+                  $output .= '<span class="text-warning"><b>Đã Check-in, Chờ Check-out</b></span>';
+              }else if($value_order->order_status == OrderStatus::COMPLETED) {
+                  $output .= '<span class="text-success"><b>Đã Hoàn Thành</b></span>';
+              }else if($value_order->order_status == OrderStatus::NO_SHOW) {
+                  $output .= '<span class="text-danger"><b>No Show</b></span>';
               }
           $output .= '
           </td>
           <td>';
-          if($value_order->payment->payment_method == 4){
-              $output .= 'Khi Nhận Phòng';
-          }else if($value_order->payment->payment_method == 1){
-              $output .= 'Thanh Toán Momo';
+          if($value_order->payment) {
+              if($value_order->payment->payment_method == 4){
+                  $output .= 'Khi Nhận Phòng';
+              }else if($value_order->payment->payment_method == 1){
+                  $output .= 'Thanh Toán Momo';
+              }else if($value_order->payment->payment_method == 2){
+                  $output .= 'Thanh Toán Qua VNPAY';
+              }else{
+                  $output .= 'N/A';
+              }
+          } else {
+              $output .= 'N/A';
           }
           $output .= '
           </td>
           <td>';
-          if($value_order->payment->payment_status == 0){
-              $output .= 'Chưa Thanh Toán';
-          }else if($value_order->payment->payment_status == 1){
-              $output .= 'Đã Thanh Toán';
+          if($value_order->payment) {
+              if($value_order->payment->payment_status == 0){
+                  $output .= 'Chưa Thanh Toán';
+              }else if($value_order->payment->payment_status == 1){
+                  $output .= 'Đã Thanh Toán';
+              }else{
+                  $output .= 'N/A';
+              }
+          } else {
+              $output .= 'N/A';
           }
           $output .= '
           </td>

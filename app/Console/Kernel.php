@@ -18,6 +18,9 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('statistical_run:cron')->hourly();
         $schedule->command('statistical_run:cron')->everyMinute();
+        
+        // Kiểm tra đơn hàng no show mỗi ngày lúc 00:00
+        $schedule->command('orders:check-no-show')->daily();
     }
 
     /**

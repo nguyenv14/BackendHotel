@@ -12,6 +12,7 @@ use App\Models\ManipulationActivity;
 use App\Models\Hotel;
 use App\Models\OrderDetails;
 use App\Models\Orderer;
+use App\Http\Enums\OrderStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -106,8 +107,13 @@ class DashboardController extends Controller
             // Tính tổng số đơn
             $groupedData[$key]['total_order']++;
 
-            // Tính doanh thu (đơn hoàn thành: status = 1 hoặc 2)
-            if ($order->order_status == 1 || $order->order_status == 2) {
+            // Tính doanh thu (đơn đã được duyệt và thanh toán: status = 0, 1, 2, 3)
+            if (in_array($order->order_status, [
+                OrderStatus::WAITING_FOR_APPROVAL,
+                OrderStatus::CHECK_IN,
+                OrderStatus::CHECK_OUT,
+                OrderStatus::COMPLETED
+            ])) {
                 $groupedData[$key]['sales'] += ($order->total_price ?? 0);
                 
                 // Tính số phòng từ order_details
@@ -118,7 +124,7 @@ class DashboardController extends Controller
             }
 
             // Tính đơn hủy (status = -1 hoặc -2)
-            if ($order->order_status == -1 || $order->order_status == -2) {
+            if ($order->order_status == OrderStatus::CANCELLED_BY_ADMIN || $order->order_status == OrderStatus::CANCELLED_BY_CUSTOMER) {
                 $groupedData[$key]['order_refused']++;
                 $groupedData[$key]['price_order_refused'] += ($order->total_price ?? 0);
             }

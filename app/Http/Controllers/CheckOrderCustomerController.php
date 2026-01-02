@@ -7,6 +7,8 @@ use App\Models\Order;
 use App\Models\OrderDetails;
 use App\Models\Orderer;
 use App\Models\Coupon;
+use App\Models\TypeRoom;
+use App\Http\Enums\OrderStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
 use Session;
@@ -91,23 +93,39 @@ class CheckOrderCustomerController extends Controller
     public function loading_order_status(Request $request)
     {
         $order = Order::where('order_code', $request->order_code)->first();
-        if ($order->order_status == 0) {
+        if ($order->order_status == OrderStatus::WAITING_FOR_APPROVAL) {
             $status = 'Đang Chờ Duyệt';
-        } elseif ($order->order_status == -1) {
-            $status = 'Đã Bị Hủy';
-        } elseif ($order->order_status == -2) {
-            $status = 'Đã Hủy';
-        } elseif ($order->order_status == 1 || $order->order_status == 2) {
-            $status = 'Đã Duyệt';
+        } elseif ($order->order_status == OrderStatus::CANCELLED_BY_ADMIN) {
+            $status = 'Đã Hủy Do Admin';
+        } elseif ($order->order_status == OrderStatus::CANCELLED_BY_CUSTOMER) {
+            $status = 'Đã Hủy Do Người Dùng';
+        } elseif ($order->order_status == OrderStatus::CHECK_IN) {
+            $status = 'Check-in';
+        } elseif ($order->order_status == OrderStatus::CHECK_OUT) {
+            $status = 'Check-out';
+        } elseif ($order->order_status == OrderStatus::COMPLETED) {
+            $status = 'Đã Hoàn Thành';
+        } elseif ($order->order_status == OrderStatus::NO_SHOW) {
+            $status = 'No Show - Đã Vượt Qua Thời Gian Check-in';
         }
         $output = '
         <div class="info-customer-right-status">
             ' . $status . '
         </div>';
 
-        if ($order->order_status == 0) {
+        if ($order->order_status == OrderStatus::WAITING_FOR_APPROVAL) {
             $output .= '<button id="btn-cancel-order" class="info-customer-right-btn" data-order_code=' . $request->order_code . '>Huỷ Đơn</button>';
-        } elseif ($order->order_status == 1) {
+            // Hiển thị mã check-in nếu đã được duyệt (có mã check-in)
+            if ($order->checkin_code) {
+                $output .= '<div class="info-customer-right-checkin-code" style="margin-top: 10px; padding: 10px; background-color: #f0f0f0; border-radius: 5px;">
+                    <strong>Mã Check-in:</strong> <span style="font-size: 18px; color: #007bff; font-weight: bold;">' . $order->checkin_code . '</span>
+                </div>';
+            }
+        } elseif ($order->order_status == OrderStatus::CHECK_IN) {
+            // Đã check-in, có thể checkout
+            $output .= '<button id="btn-checkout-order" class="info-customer-right-btn" data-order_code=' . $request->order_code . '>Check-out</button>';
+        } elseif ($order->order_status == OrderStatus::CHECK_OUT) {
+            // Đã checkout, có thể đánh giá
             $output .= '<button id="boxdanhgia" class="info-customer-right-btn btn-info-order" data-order_code=' . $request->order_code . '>Đánh Giá</button>';
         }
         echo $output;
@@ -138,7 +156,8 @@ class CheckOrderCustomerController extends Controller
         $evaluate->save();
 
         $order = Order::where('order_code', $data['order_code'])->first();
-        $order->order_status = 2;
+        // Sau khi đánh giá, chuyển status từ 2 (checkout) sang 3 (đã hoàn thành)
+        $order->order_status = OrderStatus::COMPLETED;
         $order->save();
         echo 'true';
     }
@@ -146,7 +165,7 @@ class CheckOrderCustomerController extends Controller
     public function cancel_order(Request $request)
     {
         $order = Order::where('order_code', $request->order_code)->first();
-        $order->order_status = -2;
+        $order->order_status = OrderStatus::CANCELLED_BY_CUSTOMER;
         $order->save();
 
         /* Hoàn Lại Số Lượng Mã Giảm Giá (Nếu Có) Và Số Lượng Phòng*/
@@ -181,7 +200,15 @@ class CheckOrderCustomerController extends Controller
             $order = Order::where('created_at', 'like', $now . '%')->get();
             $statical->total_order = $order->count();
 
-            $order_completion = Order::where('created_at', 'like', $now . '%')->where('order_status', 1)->get();
+            // Tính doanh thu cho các đơn đã được duyệt (status = 0, 1, 2, 3) - đã thanh toán
+            $order_completion = Order::where('created_at', 'like', $now . '%')
+                ->whereIn('order_status', [
+                    OrderStatus::WAITING_FOR_APPROVAL,
+                    OrderStatus::CHECK_IN,
+                    OrderStatus::CHECK_OUT,
+                    OrderStatus::COMPLETED
+                ])
+                ->get();
             
             if ($order_completion->count()) {
                 $sales = 0;
@@ -204,8 +231,8 @@ class CheckOrderCustomerController extends Controller
 
             $order_ref = Order::where('created_at', 'like', $now . '%')
                 ->where(function ($query) {
-                    $query->where('order_status', -1)
-                        ->orwhere('order_status', -2);
+                    $query->where('order_status', OrderStatus::CANCELLED_BY_ADMIN)
+                        ->orwhere('order_status', OrderStatus::CANCELLED_BY_CUSTOMER);
                 })->get();
 
             if ($order_ref->count()) {
@@ -235,6 +262,141 @@ class CheckOrderCustomerController extends Controller
             "content" => "$content",
         );
         session()->flash('message', $message);
+    }
+
+    /**
+     * Check-in đơn hàng bằng mã check-in
+     * 
+     * @param Request $request
+     * @return void
+     */
+    public function checkin_order(Request $request)
+    {
+        $checkin_code = $request->checkin_code;
+        
+        if (!$checkin_code) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Vui lòng nhập mã check-in'
+            ]);
+            return;
+        }
+
+        $order = Order::where('checkin_code', $checkin_code)->first();
+        
+        if (!$order) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Mã check-in không hợp lệ'
+            ]);
+            return;
+        }
+
+        // Kiểm tra trạng thái đơn hàng - chỉ có thể check-in khi status = 1 (CHECK_IN - đã duyệt, chờ check-in)
+        if ($order->order_status != OrderStatus::CHECK_IN) {
+            $statusMessage = '';
+            if ($order->order_status == OrderStatus::CANCELLED_BY_ADMIN) {
+                $statusMessage = 'Đơn hàng đã bị hủy bởi admin';
+            } elseif ($order->order_status == OrderStatus::CANCELLED_BY_CUSTOMER) {
+                $statusMessage = 'Đơn hàng đã bị hủy';
+            } elseif ($order->order_status == OrderStatus::CHECK_IN) {
+                $statusMessage = 'Đơn hàng đã được check-in rồi';
+            } elseif ($order->order_status == OrderStatus::CHECK_OUT) {
+                $statusMessage = 'Đơn hàng đã được check-out';
+            } elseif ($order->order_status == OrderStatus::COMPLETED) {
+                $statusMessage = 'Đơn hàng đã hoàn thành';
+            } elseif ($order->order_status == OrderStatus::NO_SHOW) {
+                $statusMessage = 'Đơn hàng đã bị hủy do no show';
+            }
+            
+            echo json_encode([
+                'success' => false,
+                'message' => $statusMessage
+            ]);
+            return;
+        }
+
+        // Kiểm tra xem đơn hàng đã có mã check-in chưa (phải được duyệt trước)
+        if (!$order->checkin_code) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Đơn hàng chưa được duyệt hoặc chưa có mã check-in'
+            ]);
+            return;
+        }
+
+        // Check-in thành công - cập nhật trạng thái từ 1 (CHECK_IN) sang 2 (CHECK_OUT)
+        $order->order_status = OrderStatus::CHECK_OUT;
+        $order->save();
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Check-in thành công',
+            'order_code' => $order->order_code
+        ]);
+    }
+
+    /**
+     * Check-out đơn hàng
+     * 
+     * @param Request $request
+     * @return void
+     */
+    public function checkout_order(Request $request)
+    {
+        $order_code = $request->order_code;
+        
+        if (!$order_code) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Vui lòng nhập mã đơn hàng'
+            ]);
+            return;
+        }
+
+        $order = Order::where('order_code', $order_code)->first();
+        
+        if (!$order) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Mã đơn hàng không hợp lệ'
+            ]);
+            return;
+        }
+
+        // Kiểm tra trạng thái đơn hàng - chỉ có thể checkout khi đã check-in (status = 1)
+        if ($order->order_status != OrderStatus::CHECK_IN) {
+            $statusMessage = '';
+            if ($order->order_status == OrderStatus::WAITING_FOR_APPROVAL) {
+                $statusMessage = 'Đơn hàng chưa được check-in';
+            } elseif ($order->order_status == OrderStatus::CANCELLED_BY_ADMIN) {
+                $statusMessage = 'Đơn hàng đã bị hủy bởi admin';
+            } elseif ($order->order_status == OrderStatus::CANCELLED_BY_CUSTOMER) {
+                $statusMessage = 'Đơn hàng đã bị hủy';
+            } elseif ($order->order_status == OrderStatus::CHECK_OUT) {
+                $statusMessage = 'Đơn hàng đã được check-out rồi';
+            } elseif ($order->order_status == OrderStatus::COMPLETED) {
+                $statusMessage = 'Đơn hàng đã hoàn thành';
+            } elseif ($order->order_status == OrderStatus::NO_SHOW) {
+                $statusMessage = 'Đơn hàng đã bị hủy do no show';
+            }
+            
+            echo json_encode([
+                'success' => false,
+                'message' => $statusMessage
+            ]);
+            return;
+        }
+
+        // Check-out thành công - cập nhật trạng thái từ 1 sang 2
+        $order->order_status = OrderStatus::CHECK_OUT;
+        $order->save();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Check-out thành công',
+            'order_code' => $order->order_code
+        ]);
     }
 
 }
