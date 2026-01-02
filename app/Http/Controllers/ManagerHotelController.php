@@ -109,7 +109,7 @@ class ManagerHotelController extends Controller
 
     public function update_item(Request $request){
         $result = $this->hotelRepo->update_item($request->all(),$request->file('hotel_image'));
-        return redirect('/admin/hotel/all-hotel');
+        return redirect()->back();
     }
 
     /**

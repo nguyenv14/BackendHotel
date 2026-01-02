@@ -138,7 +138,7 @@ class GalleryRoomRepository extends BaseRepository implements GalleryRoomReposit
                 <td>
                 <input hidden id="up_load_file' . $gallery->gallery_room_id . '" class="up_load_file"  type="file" name="file_image" accept="image/*" data-gallery_room_id = "' . $gallery->gallery_room_id . '">
                 <label class="up_load_file" for="up_load_file' . $gallery->gallery_room_id . '" >
-               <img style="object-fit: cover" width="40px" height="20px" src=' . URL('public/fontend/assets/img/hotel/room/gallery_' . $folder . '/' . $gallery->gallery_room_image) . ' alt="' . $gallery->gallery_room_content . '">
+               <img style="object-fit: cover" width="40px" height="20px" src=' . URL($gallery->gallery_room_image) . ' alt="' . $gallery->gallery_room_content . '">
                 </label>
                </td>
                 <td  contentEditable  class="edit_gallery_room_content"  data-gallery_room_id = "' . $gallery->gallery_room_id . '"><div style="width: 200px;overflow: hidden">  ' . $gallery->gallery_room_content . ' </div>  </td>

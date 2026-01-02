@@ -273,7 +273,7 @@
 
                     <li class="nav-item">
                         <a class="nav-link" href="{{ URL::to('admin/hotel/manager?hotel_id=' . $hotel->hotel_id) }}">
-                            <span class="menu-title">{{ $hotel->hotel_name }}</span>
+                            <span class="menu-title text-truncate break-long-words">{{ $hotel->hotel_name }}</span>
                             <i class="fa-solid fa-hotel menu-icon"></i>
                         </a>
                     </li>
