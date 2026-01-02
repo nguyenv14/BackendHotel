@@ -149,7 +149,7 @@
                             <th>Loại Giường</th>
                             <th>Nhận Phòng</th>
                             <th>Trả Phòng</th>
-                            <th>Giá Phòng</th>
+                            <th>Đơn Giá Phòng</th>
                         </tr>
                     </thead>
                     <tbody>
