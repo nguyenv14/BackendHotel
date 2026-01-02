@@ -14,6 +14,7 @@ use App\Models\Room;
 use App\Models\ServiceCharge;
 use App\Models\TypeRoom;
 use App\Models\Customers;
+use App\Http\Enums\OrderStatus;
 use Carbon\Carbon;
 use DB;
 use Illuminate\Http\Request;
@@ -442,11 +443,11 @@ class CheckOutController extends Controller
         }
         $require = session()->get('require');
         $orderer->orderer_type_bed = $require['type_bed'];
-        $orderer->orderer_special_requirements = $require['special_requirements'];
+        $orderer->orderer_special_requirements = $this->convertSpecialRequirements($require['special_requirements'] ?? null);
         $orderer->orderer_own_require = $require['own_require'];
         $orderer->orderer_bill_require = $require['bill_require'];
         $orderer->save();
-        $orderer_id = DB::getPdo('tbl_orderer')->lastInsertId();
+        $orderer_id = DB::table('tbl_orderer')->orderBy('orderer_id', 'desc')->first()->orderer_id;
 
         //Thêm Dữ Liệu Vào Bảng Order
         $order_details = session()->get('order_details');
@@ -455,7 +456,22 @@ class CheckOutController extends Controller
 
         $order->orderer_id = $orderer_id;
         $order->payment_id = $payment_id;
-        $order->order_status = 0;
+        
+        // Tạo mã check-in ngay khi tạo đơn (cho cả 2 trường hợp)
+        $order->checkin_code = $this->generateCheckinCode($order_details['order_code']);
+        
+        // Set order_status dựa trên payment_method
+        // payment_method = 4 (Khi Nhận Phòng) → order_status = 0 (Chờ duyệt) - KHÔNG gửi mail, chờ admin duyệt
+        // payment_method = 2 (VNPAY) → order_status = 1 (Đã thanh toán, có thể check-in) - GỬI MAIL ngay
+        $payment = Payment::find($payment_id);
+        if ($payment && $payment->payment_method == 2) {
+            // VNPAY: đã thanh toán → order_status = 1 (CHECK_IN)
+            $order->order_status = OrderStatus::CHECK_IN;
+        } else {
+            // Thanh toán khi nhận phòng: chờ duyệt → order_status = 0
+            $order->order_status = OrderStatus::WAITING_FOR_APPROVAL;
+        }
+        
         $order->order_code = $order_details['order_code'];
         $order->start_day = $schedule['date_start'];
         $order->end_day = $schedule['date_end'];
@@ -490,6 +506,9 @@ class CheckOutController extends Controller
         $type_room->save();
 
         ManipulationActivity::noteManipulationCustomer("Hệ Thống Lưu Đơn Hàng Vào Database");
+        
+        // Luôn gửi mail khi tạo đơn (thông báo đơn đang chờ admin xác nhận, KHÔNG có checkin_code)
+        // Sau khi admin duyệt sẽ gửi mail tiếp với checkin_code
         $this->email_order_to_customer();
 
     }
@@ -497,6 +516,11 @@ class CheckOutController extends Controller
     public function email_order_to_customer()
     {
         $order_details = session()->get('order_details');
+        $order_code = $order_details['order_code'] ?? null;
+        
+        // Lấy order để có checkin_code
+        $order = Order::where('order_code', $order_code)->first();
+        
         if (session()->get('customer_id')) {
             $customer = Customers::where('customer_id', session()->get('customer_id'))->where('customer_status', 1)->first();
             $customer_name = $customer->customer_name;
@@ -512,15 +536,37 @@ class CheckOutController extends Controller
         $to_name = "MyHotel - Tìm Kiếm Khách Sạn Tại Khu Vực Đà Nẵng";
         $to_email = $customer_email;
 
+        // Khi tạo đơn: luôn gửi mail thông báo chờ admin xác nhận, KHÔNG gửi checkin_code
+        // Sau khi admin duyệt sẽ gửi mail tiếp với checkin_code
+        $subject = "MyHotel - Yêu Cầu Đặt Phòng Của Bạn Đã Được Ghi Nhận Và Đang Chờ Xử Lý!";
+
+        // Lấy thông tin type room
+        $typeRoom = null;
+        if (isset($order_details['type_room_id']) && $order_details['type_room_id']) {
+            $typeRoom = TypeRoom::where('type_room_id', $order_details['type_room_id'])->first();
+        }
+        
+        // Thêm thông tin type room vào order_details
+        $order_details['type_room_bed'] = $typeRoom ? ($typeRoom->type_room_bed ?? 'N/A') : 'N/A';
+        $order_details['type_room_price'] = $typeRoom ? ($typeRoom->type_room_price ?? 0) : 0;
+        $order_details['type_room_condition'] = $typeRoom ? ($typeRoom->type_room_condition ?? 'N/A') : 'N/A';
+        
+        // Tính total_price từ order_details
+        $total_price = $order_details['total_payment'] ?? ($order_details['price_room'] + ($order_details['hotel_fee'] ?? 0) - ($order_details['coupon_price_sale'] ?? 0));
+        
         $data = array(
             "customer_name" => $customer_name,
             "customer_email" => $customer_email,
             "customer_phone" => $customer_phone,
             "order_details" => $order_details,
+            "coupon_price_sale" => $order_details['coupon_price_sale'] ?? 0,
+            "total_price" => $total_price,
+            "checkin_code" => null, // Không gửi checkin_code khi tạo đơn
+            "order_status" => $order ? $order->order_status : 0,
         );
-        Mail::send('pages.mail', $data, function ($message) use ($to_name, $to_email) {
-            $message->to($to_email)->subject("MyHotel - Yêu Cầu Đặt Phòng Của Bạn Đã Được Ghi Nhận Và Đang Chờ Xử Lý!"); //send this mail with subject
-            $message->from($to_email, $to_name); //send from this mail
+        Mail::send('pages.mail', $data, function ($message) use ($to_name, $to_email, $subject) {
+            $message->to($to_email)->subject($subject);
+            $message->from($to_email, $to_name);
         });
         ManipulationActivity::noteManipulationCustomer("Hệ Thống Gửi Mail Đến Người Dùng");
     }
@@ -613,6 +659,68 @@ class CheckOutController extends Controller
             "content" => "$content",
         );
         session()->flash('message', $message);
+    }
+
+    /**
+     * Convert special requirements string to integer code
+     * 0: Không
+     * 1: Phòng không hút thuốc
+     * 2: Phòng ở tầng cao
+     * 3: Phòng không hút thuốc và trên cao
+     */
+    private function convertSpecialRequirements($specialRequirements): int
+    {
+        if (empty($specialRequirements)) {
+            return 0;
+        }
+
+        // Nếu đã là số, trả về luôn
+        if (is_numeric($specialRequirements)) {
+            return (int) $specialRequirements;
+        }
+
+        // Convert string thành lowercase để so sánh
+        $requirements = strtolower(trim($specialRequirements));
+        
+        // Kiểm tra nếu có cả "non-smoking" và "high-floor"
+        if (strpos($requirements, 'non-smoking') !== false && strpos($requirements, 'high-floor') !== false) {
+            return 3; // Phòng không hút thuốc và trên cao
+        }
+        
+        // Kiểm tra từng yêu cầu riêng lẻ
+        if (strpos($requirements, 'non-smoking') !== false) {
+            return 1; // Phòng không hút thuốc
+        }
+        
+        if (strpos($requirements, 'high-floor') !== false) {
+            return 2; // Phòng ở tầng cao
+        }
+
+        // Mặc định là 0 (Không)
+        return 0;
+    }
+
+    /**
+     * Tạo mã check-in duy nhất cho đơn hàng
+     * 
+     * @param string $order_code
+     * @return string
+     */
+    private function generateCheckinCode($order_code)
+    {
+        // Tạo mã check-in dựa trên order_code và timestamp
+        // Format: CHK + 4 ký tự cuối của order_code + 6 số ngẫu nhiên
+        $orderSuffix = substr($order_code, -4);
+        $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        $checkinCode = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+        
+        // Kiểm tra mã đã tồn tại chưa (rất hiếm nhưng để đảm bảo)
+        while (Order::where('checkin_code', $checkinCode)->exists()) {
+            $randomNumber = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $checkinCode = 'CHK' . strtoupper($orderSuffix) . $randomNumber;
+        }
+        
+        return $checkinCode;
     }
 
 }

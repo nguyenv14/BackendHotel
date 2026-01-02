@@ -24,7 +24,8 @@ class Order extends Model
         'coupon_sale_price',
         'total_price',
         'restaurant_id',
-        'order_type' /* Trường Trong Bảng */
+        'order_type',
+        'checkin_code' /* Trường Trong Bảng */
     ];
 
     public function getCouponSalePriceAttribute(): int

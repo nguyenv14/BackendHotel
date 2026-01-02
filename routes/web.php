@@ -489,6 +489,9 @@ Route::group(['middleware' => 'ProtectAuthLogin'], function () {
                 Route::POST('/delete-trash-order', 'bin_delete');
                 Route::GET('/sort-order', 'sort_order');
                 Route::get('/get-hotels', 'getHotels');
+                Route::POST('/admin-checkin-order', 'admin_checkin_order');
+                Route::POST('/admin-checkout-order', 'admin_checkout_order');
+                Route::POST('/admin-complete-order', 'admin_complete_order');
             });
         });
     });
@@ -584,5 +587,7 @@ Route::controller(CheckOrderCustomerController::class)->group(function () {
         Route::GET('/loading-order-status', 'loading_order_status');
         Route::GET('/insert-evaluate', 'insert_evaluate');
         Route::GET('/cancel-order', 'cancel_order');
+        Route::POST('/checkin-order', 'checkin_order');
+        Route::POST('/checkout-order', 'checkout_order');
     });
 });

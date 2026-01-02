@@ -59,7 +59,10 @@ Route::prefix('order')->group(function () {
     Route::put('/status', [ApiOrderHotelController::class, 'updateOrderStatus'])->middleware('auth:api');
     Route::get('/statistics', [ApiOrderHotelController::class, 'getOrderStatistics'])->middleware('auth:api');
     // checkOut
-    Route::post('/checkout', [ApiCheckoutController::class, 'orderRoom'])->middleware('auth:api');  
+    Route::post('/checkout', [ApiCheckoutController::class, 'orderRoom'])->middleware('auth:api');
+    // Check-in và Check-out
+    Route::post('/checkin', [ApiOrderHotelController::class, 'checkinOrder']);
+    Route::post('/checkout-order', [ApiOrderHotelController::class, 'checkoutOrder'])->middleware('auth:api');
 });
 
 Route::prefix('/ai')->group(function () {
@@ -137,5 +140,5 @@ Route::get('/hotel-types', [ApiSearchController::class, 'getHotelTypes']);
 Route::post('/payment/vnpay/create', [ApiVnpayController::class, 'createPayment']);
 Route::get('/payment/vnpay/return', [ApiVnpayController::class, 'handleReturn'])->name('api.payment.vnpay.return');
 Route::match(['get', 'post'], '/payment/vnpay/ipn', [ApiVnpayController::class, 'handleIpn'])->name('api.payment.vnpay.ipn');
-Route::get('/payment/vnpay-callback', [ApiVnpayController::class, 'vnpayPaymentCallback'])->name('api.payment.vnpay.callback');
+Route::post('/payment/vnpay/verify', [ApiVnpayController::class, 'verifyPayment'])->name('api.payment.vnpay.verify');
 Route::post('/vnpay-ipn', [VnpayController::class, 'ipn']);

@@ -95,12 +95,12 @@
 
                     <!-- Nút Tìm -->
                     <button id="btnSearch" class="btn btn-outline-success" type="button" title="Tìm kiếm">
-                        <i class="mdi mdi-magnify"></i> Tìm
+                        <i class="mdi mdi-magnify"></i>
                     </button>
 
                     <!-- Nút Xóa -->
                     <button id="btnClear" class="btn btn-outline-secondary" type="button" title="Xóa tìm kiếm">
-                        <i class="mdi mdi-close"></i> Xóa tìm kiếm
+                        <i class="mdi mdi-close"></i>
                     </button>
 
                     <!-- Nút Thùng rác (chỉ admin/manager) -->
@@ -134,14 +134,20 @@
 
                                 {{-- Trạng thái đơn hàng --}}
                                 <td>
-                                    @if ($order->order_status == 0)
+                                    @if ($order->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
                                         <span class="text-info"><b>Đang Chờ Duyệt</b></span>
-                                    @elseif($order->order_status == -1)
+                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN)
                                         <span class="text-danger"><b>Đơn Phòng Bị Từ Chối</b></span>
-                                    @elseif($order->order_status == -2)
+                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_CUSTOMER)
                                         <span class="text-danger"><b>Khách Hàng Hủy Đơn</b></span>
-                                    @elseif(in_array($order->order_status, [1, 2]))
-                                        <span class="text-warning"><b>Hoàn Thành Đơn Phòng</b></span>
+                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
+                                        <span class="text-primary"><b>Check-in</b></span>
+                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CHECK_OUT)
+                                        <span class="text-warning"><b>Check-out</b></span>
+                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::COMPLETED)
+                                        <span class="text-success"><b>Đã Hoàn Thành</b></span>
+                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::NO_SHOW)
+                                        <span class="text-danger"><b>No Show</b></span>
                                     @endif
                                 </td>
 
@@ -152,6 +158,8 @@
                                             Khi Nhận Phòng
                                         @elseif($order->payment->payment_method == 1)
                                             Thanh Toán Momo
+                                        @elseif ($order->payment->payment_method == 2)
+                                            Thanh Toán Qua VNPAY
                                         @endif
                                     @else
                                         N/A
@@ -175,22 +183,40 @@
 
                                 {{-- Hành động --}}
                                 <td>
-                                    @if ($order->order_status == 0)
+                                    @if ($order->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
                                         <button style="margin-top:10px"
                                             class="btn-sm btn-gradient-success btn-rounded btn-fw btn-order-status"
-                                            data-order_code="{{ $order->order_code }}" data-order_status="1">
+                                            data-order_code="{{ $order->order_code }}" data-order_status="{{ \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL }}">
                                             Duyệt Đơn <i class="mdi mdi-calendar-check"></i>
                                         </button>
                                         <br>
                                         <button style="margin-top:10px"
                                             class="btn-sm btn-gradient-danger btn-fw btn-order-status"
-                                            data-order_code="{{ $order->order_code }}" data-order_status="-1">
+                                            data-order_code="{{ $order->order_code }}" data-order_status="{{ \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN }}">
                                             Từ Chối <i class="mdi mdi-calendar-remove"></i>
                                         </button>
                                         <br>
                                     @endif
 
-                                    @if (in_array($order->order_status, [-1, 1, 2, -2]))
+                                    @if ($order->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
+                                        <div style="margin-top:10px">
+                                            <label for="checkin_code_{{ $order->order_id }}" style="font-size: 12px; font-weight: bold;">Mã Check-in:</label>
+                                            <input type="text" 
+                                                   id="checkin_code_{{ $order->order_id }}" 
+                                                   class="form-control form-control-sm" 
+                                                   placeholder="Nhập mã check-in"
+                                                   value="{{ $order->checkin_code ?? '' }}"
+                                                   style="margin-top: 5px; width: 150px; display: inline-block;">
+                                            <button type="button"
+                                                    class="btn-sm btn-gradient-primary btn-checkin-order mt-2"
+                                                    data-order_code="{{ $order->order_code }}"
+                                                    data-order_id="{{ $order->order_id }}">
+                                                Xác Nhận Check-in <i class="mdi mdi-check"></i>
+                                            </button>
+                                        </div>
+                                    @endif
+
+                                    @if (in_array($order->order_status, [\App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN, \App\Http\Enums\OrderStatus::CHECK_IN, \App\Http\Enums\OrderStatus::CHECK_OUT, \App\Http\Enums\OrderStatus::CANCELLED_BY_CUSTOMER]))
                                         @hasanyroles(['admin', 'manager'])
                                         <button type="button"
                                             class="btn-sm btn-gradient-danger btn-icon-text btn-delete-item mt-2"
@@ -555,6 +581,45 @@
                 }
             })
         }
+
+        // Xử lý check-in order
+        $(document).on('click', '.btn-checkin-order', function() {
+            var order_code = $(this).data('order_code');
+            var order_id = $(this).data('order_id');
+            var checkin_code = $('#checkin_code_' + order_id).val().trim();
+            
+            if (!checkin_code) {
+                message_toastr("error", 'Vui lòng nhập mã check-in!');
+                return;
+            }
+
+            var _token = $('meta[name="csrf-token"]').attr('content');
+            
+            $.ajax({
+                url: '{{ url('kiem-tra-don-hang/checkin-order') }}',
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': _token
+                },
+                data: {
+                    _token: _token,
+                    checkin_code: checkin_code,
+                },
+                success: function(data) {
+                    var response = JSON.parse(data);
+                    if (response.success) {
+                        message_toastr("success", response.message);
+                        getPosts(notePage);
+                    } else {
+                        message_toastr("error", response.message);
+                    }
+                },
+                error: function(xhr) {
+                    var response = JSON.parse(xhr.responseText);
+                    message_toastr("error", response.message || 'Có lỗi xảy ra!');
+                }
+            });
+        });
     </script>
 
     <script>

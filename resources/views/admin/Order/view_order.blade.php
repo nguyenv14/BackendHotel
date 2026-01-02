@@ -146,6 +146,7 @@
                         <tr>
                             <th>Tên Khách Sạn</th>
                             <th>Tên Phòng</th>
+                            <th>Loại Giường</th>
                             <th>Nhận Phòng</th>
                             <th>Trả Phòng</th>
                             <th>Đơn Giá Phòng</th>
@@ -155,6 +156,19 @@
                         <tr>
                             <td>{{ $orderdetails->hotel_name }} </td>
                             <td>{{ $orderdetails->room_name }}</td>
+                            <td>
+                                @if(isset($typeRoom) && $typeRoom)
+                                    @if($typeRoom->type_room_bed == 1)
+                                        1 Giường Đơn
+                                    @elseif($typeRoom->type_room_bed == 2)
+                                        2 Giường Đơn
+                                    @else
+                                        {{ $typeRoom->type_room_bed ?? 'N/A' }}
+                                    @endif
+                                @else
+                                    N/A
+                                @endif
+                            </td>
                             <td>{{ $orderdetails->order->start_day }}</td>
                             <td>{{ $orderdetails->order->end_day }}</td>
                             <td>{{ number_format($orderdetails->price_room, 0, ',', '.') }}đ</td>
@@ -167,30 +181,115 @@
                         <td>Phí Khách Sạn : {{ number_format($orderdetails->hotel_fee, 0, ',', '.') }}đ</td><br>
                         <td>Mã Giảm Giá : {{ $orderdetails->order->coupon_name_code }}</td><br>
                         <td>Số Tiền Giảm: {{ number_format( $orderdetails->order->coupon_sale_price, 0, ',', '.') }}đ</td><br>
-                        <td>Tổng Thanh Toán: {{ number_format( $orderdetails->order->total_price, 0, ',', '.') }}đ</td><br>
+                        <td>Tổng Thanh Toán: {{ number_format($orderdetails->order->total_price, 0, ',', '.') }}đ </td>
                     </tr>
                 </div>
+
+                {{-- Hiển thị trạng thái đơn hàng --}}
+                @if(isset($order_full))
+                <div style="margin-top:20px; padding: 15px; background-color: #f0f0f0; border-radius: 5px;">
+                    <strong>Trạng Thái Đơn Hàng:</strong>
+                    @if($order_full->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
+                        <span class="badge badge-info">Đang Chờ Duyệt</span>
+                    @elseif($order_full->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
+                        <span class="badge badge-primary">Check-in</span>
+                    @elseif($order_full->order_status == \App\Http\Enums\OrderStatus::CHECK_OUT)
+                        <span class="badge badge-warning">Check-out</span>
+                    @elseif($order_full->order_status == \App\Http\Enums\OrderStatus::COMPLETED)
+                        <span class="badge badge-success">Đã Hoàn Thành</span>
+                    @elseif($order_full->order_status == \App\Http\Enums\OrderStatus::NO_SHOW)
+                        <span class="badge badge-danger">No Show</span>
+                    @elseif($order_full->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN)
+                        <span class="badge badge-danger">Đã Hủy (Admin)</span>
+                    @elseif($order_full->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_CUSTOMER)
+                        <span class="badge badge-danger">Đã Hủy (Khách Hàng)</span>
+                    @endif
+                </div>
+                @endif
 
             </div>
         </div>
     </div>
-    <div>
-        <div class="template-demo">
-            <a target="_blank" style="text-decoration: none">
+    <div style="margin-top: 20px;">
+        <div class="template-demo" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            {{-- Form Duyệt Đơn (khi đang chờ duyệt) --}}
+            @if(isset($order_full) && $order_full->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
+                <form method="GET" action="{{ url('admin/order/update-status-order') }}" style="display: inline-block; margin-right: 10px;">
+                    <input type="hidden" name="order_code" value="{{ $orderdetails->order_code }}">
+                    <input type="hidden" name="order_status" value="{{ \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL }}">
+                    <button type="submit" class="btn btn-gradient-success btn-icon-text">
+                        <i class="mdi mdi-check-circle btn-icon-prepend"></i> Duyệt Đơn
+                    </button>
+                </form>
+            @endif
+
+            {{-- Form Check-in (khi status = CHECK_IN) --}}
+            @if(isset($order_full) && $order_full->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
+                <form method="POST" action="{{ url('admin/order/admin-checkin-order') }}" style="display: inline-block; margin-right: 10px;">
+                    @csrf
+                    <input type="hidden" name="order_code" value="{{ $orderdetails->order_code }}">
+                    <div class="input-group" style="max-width: 400px;">
+                        <input type="text" 
+                               name="checkin_code"
+                               class="form-control" 
+                               placeholder="Nhập mã check-in" 
+                               value="{{ $order_full->checkin_code ?? '' }}"
+                               required
+                               style="border-radius: 4px 0 0 4px;">
+                        <div class="input-group-append">
+                            <button type="submit" 
+                                    class="btn btn-gradient-success"
+                                    style="border-radius: 0 4px 4px 0;">
+                                <i class="mdi mdi-check-circle"></i> Check-in
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            @endif
+
+            {{-- Form Check-out (khi status = CHECK_OUT) --}}
+            @if(isset($order_full) && $order_full->order_status == \App\Http\Enums\OrderStatus::CHECK_OUT)
+                <form method="POST" action="{{ url('admin/order/admin-checkout-order') }}" style="display: inline-block; margin-right: 10px;">
+                    @csrf
+                    <input type="hidden" name="order_code" value="{{ $orderdetails->order_code }}">
+                    <button type="submit" class="btn btn-gradient-warning btn-icon-text">
+                        <i class="mdi mdi-logout btn-icon-prepend"></i> Check-out
+                    </button>
+                </form>
+            @endif
+
+            <a target="_blank" style="text-decoration: none; margin-left: auto;">
                 {{-- href="{{ URL::to('admin/order/print-order?checkout_code=' . $orderdetails->order_code) }}"> --}}
-                <button type="button" class="btn btn-gradient-info btn-icon-text"> Xuất Hóa Đơn PDF <i
-                        class="mdi mdi-printer btn-icon-append"></i>
+                <button type="button" class="btn btn-gradient-info btn-icon-text"> 
+                    <i class="mdi mdi-printer btn-icon-prepend"></i> Xuất Hóa Đơn PDF
                 </button>
             </a>
-            <a style="text-decoration: none" href="">
-                <button type="button" class="btn btn-gradient-danger btn-icon-text">
-                    <i class="mdi mdi-upload btn-icon-prepend"></i> Upload </button>
-            </a>
-            <a style="text-decoration: none" href="">
-                <button type="button" class="btn btn-gradient-warning btn-icon-text">
-                    <i class="mdi mdi-reload btn-icon-prepend"></i> Reset </button>
-            </a>
-
         </div>
     </div>
+
+    {{-- Hiển thị flash message --}}
+    @if(session('success'))
+        <script>
+            $(document).ready(function() {
+                message_toastr("success", "{{ session('success') }}");
+            });
+        </script>
+    @endif
+
+    @if(session('error'))
+        <script>
+            $(document).ready(function() {
+                message_toastr("error", "{{ session('error') }}");
+            });
+        </script>
+    @endif
+
+    @if(session('info'))
+        <script>
+            $(document).ready(function() {
+                message_toastr("info", "{{ session('info') }}");
+            });
+        </script>
+    @endif
+
 @endsection
