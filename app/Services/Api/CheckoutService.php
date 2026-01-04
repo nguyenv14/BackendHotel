@@ -38,7 +38,7 @@ class CheckoutService
                 ->toArray();
 
             if (empty($list_id_orderer)) {
-                return ApiResponse::error([], 'Không có đơn hàng', 404);
+                return ApiResponse::error('Không có đơn hàng', 404);
             }
 
             $orders = Order::with([
@@ -55,22 +55,22 @@ class CheckoutService
 
             return ApiResponse::success($orders, 'Thành công!');
 
-        } catch (ModelNotFoundException $e) {
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
 
             return ApiResponse::error('Không tìm thấy dữ liệu', 404);
 
-        } catch (QueryException $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
 
-            \Log::error('GetMyOrders SQL error', [
+            Log::error('GetMyOrders SQL error', [
                 'customer_id' => $customerId,
                 'error' => $e->getMessage()
             ]);
 
             return ApiResponse::error('Lỗi truy vấn dữ liệu', 500);
 
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
 
-            \Log::error('GetMyOrders error', [
+            Log::error('GetMyOrders error', [
                 'customer_id' => $customerId,
                 'error' => $e->getMessage()
             ]);
@@ -170,21 +170,40 @@ class CheckoutService
                     ->where('room_id', $room->room_id)
                     ->first();
 
+                // Tạo hash và ghi lên blockchain để xác thực đơn hàng
+                $this->storeOrderHashOnBlockchain($order, $orderer, $pricing['final_price']);
+
+                // Refresh order để lấy invoice_hash và blockchain_tx_hash mới nhất từ database
+                $order->refresh();
+
                 // Luôn gửi mail khi tạo đơn (thông báo đơn đang chờ admin xác nhận, KHÔNG có checkin_code)
                 // Sau khi admin duyệt sẽ gửi mail tiếp với checkin_code
                 $this->emailOrderToCustomer($orderer, $orderDetail, $order, $pricing['final_price'], false);
 
+                $orderData = $this->formatOrderData(
+                    $order,
+                    $orderDetail,
+                    $orderer,
+                    $payment,
+                    $hotel,
+                    $room,
+                    $typeRoom,
+                    $galleryRoom
+                );
+
+                // Luôn thêm QR URL để verify đơn hàng (dựa trên order_code)
+                $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+                $orderData[0]['qr_url'] = $frontendUrl . '/verify/' . $order->order_code;
+                $orderData[0]['qrUrl'] = $frontendUrl . '/verify/' . $order->order_code; // camelCase để tương thích với frontend
+                
+                // Thêm blockchain info nếu có
+                if (!empty($order->invoice_hash)) {
+                    $orderData[0]['blockchain_tx_hash'] = $order->blockchain_tx_hash;
+                    $orderData[0]['invoice_hash'] = $order->invoice_hash;
+                }
+
                 return ApiResponse::success(
-                    $this->formatOrderData(
-                        $order,
-                        $orderDetail,
-                        $orderer,
-                        $payment,
-                        $hotel,
-                        $room,
-                        $typeRoom,
-                        $galleryRoom
-                    ),
+                    $orderData,
                     'Thành công!'
                 );
             });
@@ -473,7 +492,7 @@ class CheckoutService
                 $payment->transaction_hash = $payload['transaction_hash'];
             } catch (\Exception $e) {
                 // Nếu cột chưa tồn tại, log lỗi nhưng vẫn tiếp tục
-                \Log::warning('Column transaction_hash not found: ' . $e->getMessage());
+                Log::warning('Column transaction_hash not found: ' . $e->getMessage());
             }
         }
         
@@ -483,7 +502,7 @@ class CheckoutService
                 $payment->payment_amount_eth = $payload['payment_amount_eth'];
             } catch (\Exception $e) {
                 // Nếu cột chưa tồn tại, log lỗi nhưng vẫn tiếp tục
-                \Log::warning('Column payment_amount_eth not found: ' . $e->getMessage());
+                Log::warning('Column payment_amount_eth not found: ' . $e->getMessage());
             }
         }
         
@@ -494,7 +513,7 @@ class CheckoutService
         } catch (\Illuminate\Database\QueryException $e) {
             // Nếu lỗi do thiếu cột, thử save lại không có các trường blockchain
             if (str_contains($e->getMessage(), 'transaction_hash') || str_contains($e->getMessage(), 'payment_amount_eth')) {
-                \Log::error('Database columns missing. Please run migration: ' . $e->getMessage());
+                Log::error('Database columns missing. Please run migration: ' . $e->getMessage());
                 // Unset các trường blockchain và thử lại
                 unset($payment->transaction_hash);
                 unset($payment->payment_amount_eth);
@@ -772,5 +791,148 @@ class CheckoutService
         }
 
         return ApiResponse::success($typeRoom, 'Thành công!');
+    }
+
+    /**
+     * Tạo hash và ghi lên blockchain để xác thực đơn hàng
+     * 
+     * @param Order $order
+     * @param Orderer $orderer
+     * @param float $finalPrice
+     * @return void
+     */
+    private function storeOrderHashOnBlockchain(Order $order, Orderer $orderer, float $finalPrice): void
+    {
+        try {
+            $workingDir = env('BLOCKCHAIN_PATH');
+            $contractAddr = env('SMART_CONTRACT_ADDRESS');
+
+            if (!$workingDir || !$contractAddr) {
+                Log::warning('Blockchain configuration missing. Skipping blockchain storage.');
+                return;
+            }
+
+            // Tạo chuỗi để băm (Thông tin quan trọng không được sửa đổi)
+            $dataToHash = sprintf(
+                "%s|%s|%s|%s|%.2f",
+                $order->order_code,
+                $orderer->orderer_name,
+                $orderer->orderer_email,
+                $orderer->orderer_phone,
+                $finalPrice
+            );
+            $hash = hash('sha256', $dataToHash);
+
+            // Lưu hash vào database
+            $order->invoice_hash = $hash;
+            $order->save();
+
+            // Kiểm tra xem script có tồn tại không
+            $nodeScript = "scripts/store-hash.ts";
+            $scriptPath = rtrim($workingDir, '/\\') . DIRECTORY_SEPARATOR . $nodeScript;
+            
+            if (!file_exists($scriptPath)) {
+                Log::warning('Blockchain script not found. Skipping blockchain storage.', [
+                    'script_path' => $scriptPath,
+                    'order_code' => $order->order_code
+                ]);
+                return;
+            }
+
+            // Gọi script Node.js để ghi lên Blockchain
+            // Hardhat không hỗ trợ truyền tham số trực tiếp sau --, nên dùng biến môi trường
+            // Script store-hash.ts cần đọc từ process.env.ORDER_CODE, process.env.HASH, process.env.CONTRACT_ADDR, process.env.PRIVATE_KEY
+            $privateKey = env('BLOCKCHAIN_PRIVATE_KEY', '');
+            
+            if (empty($privateKey)) {
+                Log::warning('BLOCKCHAIN_PRIVATE_KEY not configured. Skipping blockchain storage.');
+                return;
+            }
+            
+            $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+            
+            if ($isWindows) {
+                // Windows: Dùng PowerShell để set biến môi trường và chạy command
+                $command = sprintf(
+                    'cd /d %s && powershell -Command "$env:ORDER_CODE=\'%s\'; $env:HASH=\'%s\'; $env:CONTRACT_ADDR=\'%s\'; $env:PRIVATE_KEY=\'%s\'; npx hardhat run %s --network localhost"',
+                    escapeshellarg($workingDir),
+                    addslashes($order->order_code),
+                    addslashes($hash),
+                    addslashes($contractAddr),
+                    addslashes($privateKey),
+                    $nodeScript
+                );
+            } else {
+                // Linux/Mac: Dùng biến môi trường trực tiếp
+                $envVars = sprintf(
+                    'ORDER_CODE=%s HASH=%s CONTRACT_ADDR=%s PRIVATE_KEY=%s',
+                    escapeshellarg($order->order_code),
+                    escapeshellarg($hash),
+                    escapeshellarg($contractAddr),
+                    escapeshellarg($privateKey)
+                );
+                $command = sprintf(
+                    'cd %s && %s npx hardhat run %s --network localhost',
+                    escapeshellarg($workingDir),
+                    $envVars,
+                    $nodeScript
+                );
+            }
+
+            $output = [];
+            $returnVar = 0;
+            exec($command . ' 2>&1', $output, $returnVar);
+
+            if ($returnVar === 0) {
+                // Lấy output JSON từ script JS
+                $outputString = implode("\n", $output);
+                preg_match('/\{.*\}/s', $outputString, $matches);
+                $jsonOutput = json_decode($matches[0] ?? '{}', true);
+
+                if (($jsonOutput['status'] ?? '') === 'success') {
+                    // Lưu transaction hash vào database
+                    $order->blockchain_tx_hash = $jsonOutput['tx_hash'] ?? null;
+                    $order->save();
+                    Log::info('Order hash stored on blockchain', [
+                        'order_code' => $order->order_code,
+                        'tx_hash' => $order->blockchain_tx_hash
+                    ]);
+                } else {
+                    Log::warning('Blockchain storage failed', [
+                        'order_code' => $order->order_code,
+                        'output' => $jsonOutput
+                    ]);
+                }
+            } else {
+                // Kiểm tra xem có phải lỗi HHE506 (tham số không được nhận) không
+                $outputString = implode("\n", $output);
+                $isHHE506Error = strpos($outputString, 'HHE506') !== false || 
+                                strpos($outputString, 'not associated with any task') !== false;
+                
+                if ($isHHE506Error) {
+                    // Lỗi này xảy ra khi script không được viết đúng để nhận tham số
+                    // Đơn hàng vẫn được tạo thành công, chỉ là không ghi lên blockchain
+                    Log::warning('Blockchain script configuration issue. Order created successfully but not stored on blockchain.', [
+                        'order_code' => $order->order_code,
+                        'error_type' => 'HHE506',
+                        'note' => 'Script store-hash.js may need to be updated to properly receive parameters',
+                        'output' => $output
+                    ]);
+                } else {
+                    // Các lỗi khác (network, contract, etc.)
+                    Log::warning('Blockchain script execution failed. Order created successfully but not stored on blockchain.', [
+                        'order_code' => $order->order_code,
+                        'output' => $output,
+                        'return_var' => $returnVar
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Không throw exception để không làm gián đoạn quá trình tạo đơn
+            Log::error('Error storing order hash on blockchain', [
+                'order_code' => $order->order_code ?? null,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

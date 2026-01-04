@@ -203,9 +203,14 @@ class OrderService
             // Format orderer info
             $ordererInfo = $this->formatOrdererInfo($orderer);
             
-            return [
+            // Generate QR URL for order verification
+            $orderCode = $order->order_code ?? '';
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+            $qrUrl = $orderCode ? $frontendUrl . '/verify/' . $orderCode : null;
+            
+            $result = [
                 'order_id' => $order->order_id ?? 0,
-                'order_code' => $order->order_code ?? '',
+                'order_code' => $orderCode,
                 'start_day' => $order->start_day ?? '',
                 'end_day' => $order->end_day ?? '',
                 'order_status' => $order->order_status ?? 0,
@@ -227,6 +232,20 @@ class OrderService
                     'hotel_rank' => $hotel->hotel_rank ?? 0,
                 ] : null,
             ];
+            
+            // Add QR URL (both snake_case and camelCase for compatibility)
+            if ($qrUrl) {
+                $result['qr_url'] = $qrUrl;
+                $result['qrUrl'] = $qrUrl;
+            }
+            
+            // Add blockchain info if available
+            if (!empty($order->invoice_hash)) {
+                $result['invoice_hash'] = $order->invoice_hash;
+                $result['blockchain_tx_hash'] = $order->blockchain_tx_hash ?? null;
+            }
+            
+            return $result;
         })->toArray();
     }
     
@@ -483,9 +502,14 @@ class OrderService
         // Format orderer info
         $ordererInfo = $this->formatOrdererInfo($orderer);
         
-        return [
+        // Generate QR URL for order verification
+        $orderCode = $order->order_code ?? '';
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $qrUrl = $orderCode ? $frontendUrl . '/verify/' . $orderCode : null;
+        
+        $result = [
             'order_id' => $order->order_id ?? 0,
-            'order_code' => $order->order_code ?? '',
+            'order_code' => $orderCode,
             'start_day' => $order->start_day ?? '',
             'end_day' => $order->end_day ?? '',
             'order_status' => $order->order_status ?? 0,
@@ -507,6 +531,20 @@ class OrderService
                 'hotel_rank' => $hotel->hotel_rank ?? 0,
             ] : null,
         ];
+        
+        // Add QR URL (both snake_case and camelCase for compatibility)
+        if ($qrUrl) {
+            $result['qr_url'] = $qrUrl;
+            $result['qrUrl'] = $qrUrl;
+        }
+        
+        // Add blockchain info if available
+        if (!empty($order->invoice_hash)) {
+            $result['invoice_hash'] = $order->invoice_hash;
+            $result['blockchain_tx_hash'] = $order->blockchain_tx_hash ?? null;
+        }
+        
+        return $result;
     }
     
     /**
