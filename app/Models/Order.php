@@ -25,7 +25,9 @@ class Order extends Model
         'total_price',
         'restaurant_id',
         'order_type',
-        'checkin_code' /* Trường Trong Bảng */
+        'checkin_code', /* Trường Trong Bảng */
+        'invoice_hash', /* Hash để xác thực trên blockchain */
+        'blockchain_tx_hash' /* Transaction hash trên blockchain */
     ];
 
     public function getCouponSalePriceAttribute(): int

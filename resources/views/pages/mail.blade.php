@@ -154,21 +154,71 @@
             justify-content: space-around;
             margin-top: 20px;
             flex-wrap: wrap;
+            gap: 10px;
         }
         .feature-item {
             text-align: center;
-            padding: 15px;
-            flex: 1;
-            min-width: 150px;
+            padding: 10px 5px;
+            flex: 1 1 auto;
+            min-width: 100px;
+            max-width: 150px;
         }
         .feature-icon {
-            font-size: 32px;
-            margin-bottom: 10px;
+            font-size: 28px;
+            margin-bottom: 8px;
+            line-height: 1;
         }
         .feature-text {
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
             font-weight: bold;
+            word-break: break-word;
+        }
+        .qr-code-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .qr-code-section h3 {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        .qr-code-section p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        .qr-code-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        .qr-code-container img {
+            max-width: 180px;
+            height: auto;
+            display: block;
+        }
+        .qr-code-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        .qr-code-link:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
         }
         .email-footer {
             background-color: #2c3e50;
@@ -203,7 +253,34 @@
                 width: 100% !important;
             }
             .company-features {
+                flex-direction: row;
+                justify-content: center;
+            }
+            .feature-item {
+                flex: 0 0 calc(50% - 10px);
+                max-width: calc(50% - 10px);
+                min-width: calc(50% - 10px);
+                padding: 10px 5px;
+            }
+            .feature-icon {
+                font-size: 24px;
+            }
+            .feature-text {
+                font-size: 10px;
+            }
+            .qr-code-container img {
+                max-width: 150px;
+            }
+        }
+        @media only screen and (max-width: 400px) {
+            .company-features {
                 flex-direction: column;
+                align-items: center;
+            }
+            .feature-item {
+                flex: 0 0 100%;
+                max-width: 200px;
+                min-width: 150px;
             }
         }
     </style>
@@ -299,6 +376,25 @@
                     </div>
                     <p style="margin-top: 15px; font-size: 14px; color: #856404;">
                         <strong>Lưu ý:</strong> Vui lòng giữ mã này cẩn thận và trình cho nhân viên khách sạn khi check-in.
+                    </p>
+                </div>
+            </div>
+            @endif
+
+            <!-- QR Code để Verify đơn hàng trên Blockchain -->
+            @if(isset($qr_url) && $qr_url)
+            <div class="section">
+                <div class="qr-code-section">
+                    <h3>🔐 Xác Thực Đơn Hàng Blockchain</h3>
+                    <p>Quét mã QR để xác thực đơn hàng của bạn trên Blockchain và đảm bảo tính toàn vẹn của dữ liệu.</p>
+                    <div class="qr-code-container">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{ urlencode($qr_url) }}" alt="QR Code Verify" />
+                    </div>
+                    <a href="{{ $qr_url }}" target="_blank" class="qr-code-link">
+                        🔗 Mở trang xác thực
+                    </a>
+                    <p style="margin-top: 15px; font-size: 12px; color: rgba(255, 255, 255, 0.8);">
+                        Mã QR này giúp bạn xác minh tính chính hãng của đơn hàng trên hệ thống Blockchain.
                     </p>
                 </div>
             </div>
