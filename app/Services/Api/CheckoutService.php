@@ -623,6 +623,10 @@ class CheckoutService
         $checkinCode = $isApproved ? $order->checkin_code : null;
         $orderStatus = $isApproved ? 0 : $order->order_status; // 0 = đã duyệt, chờ check-in
 
+        // Tạo QR URL để verify đơn hàng
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $qrUrl = $order->order_code ? $frontendUrl . '/verify/' . $order->order_code : null;
+
         $data = [
             'customer_name' => $orderer->orderer_name,
             'customer_email' => $orderer->orderer_email,
@@ -632,6 +636,7 @@ class CheckoutService
             'total_price' => $order->total_price,
             'checkin_code' => $checkinCode,
             'order_status' => $orderStatus,
+            'qr_url' => $qrUrl, // QR URL để verify đơn hàng
         ];
 
         $toName = 'MyHotel - Tìm Kiếm Khách Sạn Tại Khu Vực Đà Nẵng';
