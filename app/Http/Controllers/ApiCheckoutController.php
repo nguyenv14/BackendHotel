@@ -30,4 +30,14 @@ class ApiCheckoutController extends Controller
     {
         return $this->checkoutService->getMyOrders(auth('api')->id());
     }
+
+    public function updateTransaction(Request $request)
+    {
+        return $this->checkoutService->updateTransaction($request->all());
+    }
+
+    public function cancelPendingTransaction(Request $request)
+    {
+        return $this->checkoutService->cancelPendingTransaction($request->all());
+    }
 }

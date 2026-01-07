@@ -14,6 +14,7 @@ use App\Http\Controllers\ApiSearchController;
 use App\Http\Controllers\ApiSlideController;
 use App\Http\Controllers\ApiSloganController;
 use App\Http\Controllers\ApiVnpayController;
+use App\Http\Controllers\CheckOutController;
 use App\Http\Controllers\VnpayController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -142,6 +143,7 @@ Route::get('/payment/vnpay/return', [ApiVnpayController::class, 'handleReturn'])
 Route::match(['get', 'post'], '/payment/vnpay/ipn', [ApiVnpayController::class, 'handleIpn'])->name('api.payment.vnpay.ipn');
 Route::post('/payment/vnpay/verify', [ApiVnpayController::class, 'verifyPayment'])->name('api.payment.vnpay.verify');
 Route::post('/vnpay-ipn', [VnpayController::class, 'ipn']);
-
+Route::post('/payment/update-transaction', [ApiCheckoutController::class, 'updateTransaction'])->name('payment.update-transaction');
+Route::post('/payment/cancel-pending', [ApiCheckoutController::class, 'cancelPendingTransaction'])->name('payment.cancel-pending');
 // Blockchain Invoice Verification
 Route::get('/verify/{orderCode}', [App\Http\Controllers\BookingController::class, 'verifyBooking']);

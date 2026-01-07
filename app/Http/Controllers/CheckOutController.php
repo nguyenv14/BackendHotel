@@ -536,11 +536,9 @@ class CheckOutController extends Controller
         $to_name = "MyHotel - Tìm Kiếm Khách Sạn Tại Khu Vực Đà Nẵng";
         $to_email = $customer_email;
 
-        // Khi tạo đơn: luôn gửi mail thông báo chờ admin xác nhận, KHÔNG gửi checkin_code
         // Sau khi admin duyệt sẽ gửi mail tiếp với checkin_code
         $subject = "MyHotel - Yêu Cầu Đặt Phòng Của Bạn Đã Được Ghi Nhận Và Đang Chờ Xử Lý!";
 
-        // Lấy thông tin type room
         $typeRoom = null;
         if (isset($order_details['type_room_id']) && $order_details['type_room_id']) {
             $typeRoom = TypeRoom::where('type_room_id', $order_details['type_room_id'])->first();

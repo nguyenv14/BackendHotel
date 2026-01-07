@@ -152,8 +152,8 @@
                                 <td>{{ $orderdetails->hotel_name }} </td>
                                 <td>{{ $orderdetails->room_name }}</td>
                                 <td>
-                                    @if(isset($typeRoom) && $typeRoom)
-                                        @if($typeRoom->type_room_bed == 1)
+                                    @if (isset($typeRoom) && $typeRoom)
+                                        @if ($typeRoom->type_room_bed == 1)
                                             1 Giường Đơn
                                         @elseif($typeRoom->type_room_bed == 2)
                                             2 Giường Đơn
@@ -179,6 +179,18 @@
                         <br>
                         <td>Tổng Thanh Toán: {{ number_format($orderdetails->order->total_price, 0, ',', '.') }}đ </td>
                     </tr>
+                </div>
+
+                {{-- Thay thế đoạn kiểm tra đơn hàng cũ bằng đoạn này --}}
+                <div
+                    style="margin-top:20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px;">
+                    <strong><i class="mdi mdi-shield-check"></i> Xác thực Blockchain:</strong>
+                    <div id="blockchain-verification-result" class="mt-2">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Đang kiểm tra dữ liệu trên Blockchain...</span>
+                        </div>
+                        <span class="ms-2">Đang xác thực tính toàn vẹn của hóa đơn...</span>
+                    </div>
                 </div>
 
                 {{-- Hiển thị trạng thái đơn hàng --}}
@@ -284,5 +296,50 @@
             });
         </script>
     @endif
+    <script>
+        $(document).ready(function() {
+            // Lấy mã đơn hàng từ dữ liệu Blade
+            var orderCode = "{{ $orderdetails->order_code }}";
+            var verifyUrl = "{{ url('api/verify') }}/" + orderCode;
 
+            $.ajax({
+                url: verifyUrl,
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    var html = '';
+                    if (response.is_valid) {
+                        html = `
+                    <div class="alert alert-success mb-0">
+                        <i class="mdi mdi-check-circle"></i> 
+                        <strong>Hợp lệ:</strong> Dữ liệu hóa đơn khớp 100% với bản gốc trên Blockchain.
+                        <br><small>Hash: ${response.blockchain_hash}</small>
+                    </div>`;
+                    } else {
+                        let reason = response.data_changed ?
+                            "Dữ liệu trong hệ thống đã bị chỉnh sửa trái phép." :
+                            "Không tìm thấy bằng chứng số trên Blockchain.";
+                        html = `
+                    <div class="alert alert-danger mb-0">
+                        <i class="mdi mdi-alert-octagon"></i> 
+                        <strong>Cảnh báo:</strong> Hóa đơn có dấu hiệu bị giả mạo hoặc thay đổi!
+                        <br><small>Lý do: ${reason}</small>
+                    </div>`;
+                    }
+                    $('#blockchain-verification-result').html(html);
+                },
+                error: function(xhr) {
+                    let errorMsg = "Không thể kết nối với mạng Blockchain.";
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    $('#blockchain-verification-result').html(`
+                <div class="alert alert-warning mb-0">
+                    <i class="mdi mdi-help-circle"></i> Lỗi xác thực: ${errorMsg}
+                </div>
+            `);
+                }
+            });
+        });
+    </script>
 @endsection

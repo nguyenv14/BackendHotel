@@ -159,9 +159,6 @@
         .feature-item {
             text-align: center;
             padding: 10px 5px;
-            flex: 1 1 auto;
-            min-width: 100px;
-            max-width: 150px;
         }
         .feature-icon {
             font-size: 28px;
@@ -381,26 +378,6 @@
             </div>
             @endif
 
-            <!-- QR Code để Verify đơn hàng trên Blockchain -->
-            @if(isset($qr_url) && $qr_url)
-            <div class="section">
-                <div class="qr-code-section">
-                    <h3>🔐 Xác Thực Đơn Hàng Blockchain</h3>
-                    <p>Quét mã QR để xác thực đơn hàng của bạn trên Blockchain và đảm bảo tính toàn vẹn của dữ liệu.</p>
-                    <div class="qr-code-container">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={{ urlencode($qr_url) }}" alt="QR Code Verify" />
-                    </div>
-                    <a href="{{ $qr_url }}" target="_blank" class="qr-code-link">
-                        🔗 Mở trang xác thực
-                    </a>
-                    <p style="margin-top: 15px; font-size: 12px; color: rgba(255, 255, 255, 0.8);">
-                        Mã QR này giúp bạn xác minh tính chính hãng của đơn hàng trên hệ thống Blockchain.
-                    </p>
-                </div>
-            </div>
-            @endif
-
-            <!-- Chi Tiết Thanh Toán -->
             <div class="section">
                 <div class="section-title">💰 Chi Tiết Thanh Toán</div>
                 <table class="price-table">
@@ -412,7 +389,6 @@
                     </thead>
                     <tbody>
                         @if(isset($order_details['base_price']))
-                            {{-- Hiển thị chi tiết nếu có base_price (từ API) --}}
                             <tr>
                                 <td>Giá Phòng</td>
                                 <td class="price-value">{{ number_format($order_details['base_price'], 0, ',', '.') }} đ</td>
@@ -430,7 +406,6 @@
                             </tr>
                             @endif
                         @else
-                            {{-- Hiển thị đơn giản nếu không có base_price (từ CheckOutController cũ) --}}
                             <tr>
                                 <td>Giá Phòng</td>
                                 <td class="price-value">{{ number_format($order_details['price_room'], 0, ',', '.') }} đ</td>
@@ -478,24 +453,6 @@
                     MyHotel là nền tảng đặt phòng khách sạn hàng đầu tại khu vực Đà Nẵng, 
                     mang đến cho bạn những trải nghiệm tuyệt vời với dịch vụ chuyên nghiệp và giá cả hợp lý.
                 </p>
-                <div class="company-features">
-                    <div class="feature-item">
-                        <div class="feature-icon">🏆</div>
-                        <div class="feature-text">Uy Tín</div>
-                    </div>
-                    <div class="feature-item">
-                        <div class="feature-icon">💰</div>
-                        <div class="feature-text">Giá Tốt</div>
-                    </div>
-                    <div class="feature-item">
-                        <div class="feature-icon">⚡</div>
-                        <div class="feature-text">Nhanh Chóng</div>
-                    </div>
-                    <div class="feature-item">
-                        <div class="feature-icon">💯</div>
-                        <div class="feature-text">Chất Lượng</div>
-                    </div>
-                </div>
                 <p style="margin-top: 20px; font-size: 13px;">
                     <strong>Địa chỉ:</strong> Đà Nẵng, Việt Nam<br>
                     <strong>Hotline:</strong> 1900-xxxx | <strong>Email:</strong> support@myhotel.vn

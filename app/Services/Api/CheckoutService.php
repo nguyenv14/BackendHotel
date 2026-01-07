@@ -149,9 +149,9 @@ class CheckoutService
                     $payment = $this->createPayment($payload);
                 }
 
-                $orderCode = $payload['order_code'] ?? $this->generateHotelCode();
+                $payload['order_code'] =  $this->generateHotelCode();
                 $orderDetail = $this->createOrderDetail(
-                    $orderCode,
+                    $payload['order_code'],
                     $hotel,
                     $room,
                     $typeRoom,
@@ -175,10 +175,10 @@ class CheckoutService
 
                 // Refresh order để lấy invoice_hash và blockchain_tx_hash mới nhất từ database
                 $order->refresh();
-
+                $isApprove = $order->order_status === 1;
                 // Luôn gửi mail khi tạo đơn (thông báo đơn đang chờ admin xác nhận, KHÔNG có checkin_code)
                 // Sau khi admin duyệt sẽ gửi mail tiếp với checkin_code
-                $this->emailOrderToCustomer($orderer, $orderDetail, $order, $pricing['final_price'], false);
+                $this->emailOrderToCustomer($orderer, $orderDetail, $order, $pricing['final_price'], $isApprove);
 
                 $orderData = $this->formatOrderData(
                     $order,
@@ -505,9 +505,9 @@ class CheckoutService
                 Log::warning('Column payment_amount_eth not found: ' . $e->getMessage());
             }
         }
-        
-        $payment->payment_status = 0; // 0 = chưa thanh toán, 1 = đã thanh toán
-        
+
+        $payment->payment_status = 1; // 0 = chưa thanh toán, 1 = đã thanh toán
+
         try {
             $payment->save();
         } catch (\Illuminate\Database\QueryException $e) {
@@ -561,9 +561,8 @@ class CheckoutService
         $order->end_day = $payload['endDay'] ?? null;
         $order->orderer_id = $orderer->orderer_id;
         $order->payment_id = $payment->payment_id;
-        
-        // Tạo order_code trước
-        $orderCode = $payload['order_code'] ?? $this->generateHotelCode();
+
+        $orderCode = $payload['order_code'];
         $order->order_code = $orderCode;
         
         // Tạo mã check-in ngay khi tạo đơn (cho cả 2 trường hợp)
@@ -582,7 +581,7 @@ class CheckoutService
         $order->order_type = 0;
         $order->total_price = $pricing['final_price'];
         $order->save();
-
+        \Log::info('Order created with order_code: ' . $order->checkin_code . ' and order_status: ' . $order->order_status);
         return $order;
     }
 
@@ -889,7 +888,6 @@ class CheckoutService
             exec($command . ' 2>&1', $output, $returnVar);
 
             if ($returnVar === 0) {
-                // Lấy output JSON từ script JS
                 $outputString = implode("\n", $output);
                 preg_match('/\{.*\}/s', $outputString, $matches);
                 $jsonOutput = json_decode($matches[0] ?? '{}', true);
@@ -909,14 +907,11 @@ class CheckoutService
                     ]);
                 }
             } else {
-                // Kiểm tra xem có phải lỗi HHE506 (tham số không được nhận) không
                 $outputString = implode("\n", $output);
                 $isHHE506Error = strpos($outputString, 'HHE506') !== false || 
                                 strpos($outputString, 'not associated with any task') !== false;
                 
                 if ($isHHE506Error) {
-                    // Lỗi này xảy ra khi script không được viết đúng để nhận tham số
-                    // Đơn hàng vẫn được tạo thành công, chỉ là không ghi lên blockchain
                     Log::warning('Blockchain script configuration issue. Order created successfully but not stored on blockchain.', [
                         'order_code' => $order->order_code,
                         'error_type' => 'HHE506',
@@ -924,7 +919,6 @@ class CheckoutService
                         'output' => $output
                     ]);
                 } else {
-                    // Các lỗi khác (network, contract, etc.)
                     Log::warning('Blockchain script execution failed. Order created successfully but not stored on blockchain.', [
                         'order_code' => $order->order_code,
                         'output' => $output,
@@ -933,11 +927,73 @@ class CheckoutService
                 }
             }
         } catch (\Throwable $e) {
-            // Không throw exception để không làm gián đoạn quá trình tạo đơn
             Log::error('Error storing order hash on blockchain', [
                 'order_code' => $order->order_code ?? null,
                 'error' => $e->getMessage()
             ]);
+        }
+    }
+
+    public function updateTransaction($data){
+    //     order_id: pendingOrderId || undefined,
+    //   order_code: pendingOrderCode || undefined,
+    //   transaction_hash: txHash,
+    //   payment_amount_eth: roomPriceInETH.value
+        try {
+            $order = Order::where('order_id', $data['order_id'])
+                ->where('order_code', $data['order_code'])
+                ->first();
+
+            if (!$order) {
+                return ApiResponse::error('Không tìm thấy đơn hàng!', 404);
+            }
+
+            $payment = Payment::where('payment_id', $order->payment_id)->first();
+
+            if (!$payment) {
+                return ApiResponse::error('Không tìm thấy thông tin thanh toán!', 404);
+            }
+
+            // Cập nhật thông tin giao dịch blockchain
+            $payment->transaction_hash = $data['transaction_hash'] ?? null;
+            $payment->payment_amount_eth = $data['payment_amount_eth'] ?? null;
+            $payment->payment_status = 1; // Đã thanh toán
+            $payment->save();
+
+            // Cập nhật trạng thái đơn hàng nếu cần
+            if ($order->order_status == 0) { // Nếu đang chờ duyệt
+                $order->order_status = 1; // Chuyển sang đã thanh toán
+                $order->save();
+            }
+            $data = [
+                'orderId' => $order->order_id,
+                'orderCode' => $order->order_code,
+                'paymentId' => $payment->payment_id,
+                'transactionHash' => $payment->transaction_hash,
+                'paymentAmountEth' => $payment->payment_amount_eth,
+                'paymentStatus' => $payment->payment_status,
+            ];
+            return ApiResponse::success($data, 'Cập nhật giao dịch thành công!');
+        } catch (\Throwable $e) {
+            report($e);
+            return ApiResponse::error('Lỗi bên trong server!', 500);
+        }
+    }
+
+    public function cancelPendingTransaction($data){
+        try 
+        {
+            $order = Order::where('order_id', $data['order_id'])
+                ->where('order_code', $data['order_code'])
+                ->first();
+            Orderer::where('orderer_id', $order->orderer_id)->delete(); // Đã hủy
+            Payment::where('payment_id', $order->payment_id)->delete(); // Đã hủy
+            OrderDetails::where('order_code', $data['order_code'])->delete(); // Đã hủy
+            $order->delete(); // Đã hủy
+            return ApiResponse::success(null, 'Hủy giao dịch thành công!');
+        } catch (\Throwable $e) {
+            report($e);
+            return ApiResponse::error('Lỗi bên trong server!', 500);
         }
     }
 }

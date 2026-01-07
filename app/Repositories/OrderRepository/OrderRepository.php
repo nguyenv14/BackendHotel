@@ -121,6 +121,8 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
                   $output .= 'Thanh Toán Momo';
               }else if($value_order->payment->payment_method == 2){
                   $output .= 'Thanh Toán VNPAY';
+              }else if($value_order->payment->payment_method == 3){
+                  $output .= 'Thanh Toán Blockchain';
               }else{
                   $output .= 'N/A';
               }
@@ -210,6 +212,8 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
                   $output .= 'Thanh Toán Momo';
               }else if($value_order->payment->payment_method == 2){
                   $output .= 'Thanh Toán Qua VNPAY';
+              }else if($value_order->payment->payment_method == 3){
+                  $output .= 'Thanh Toán Blockchain';
               }else{
                   $output .= 'N/A';
               }

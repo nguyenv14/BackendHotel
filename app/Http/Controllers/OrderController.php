@@ -525,21 +525,8 @@ class OrderController extends Controller
 
     public function statistical()
     {
-        $now      = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
-        $statical = Statistical::where('order_date', $now)->first();
-        if ($statical == '') {
-            $statis                      = new Statistical();
-            $statis->order_date          = $now;
-            $statis->sales               = 0;
-            $statis->order_refused       = 0;
-            $statis->price_order_refused = 0;
-            $statis->quantity_order_room = 0;
-            $statis->total_order         = 0;
-            $statis->save();
-        }
         // if ($statical) {
         $order                 = Order::where('created_at', 'like', $now . '%')->get();
-        $statical->total_order = $order->count();
 
         // Tính doanh thu cho các đơn đã được duyệt (status = 0, 1, 2, 3) - đã thanh toán
         $order_completion = Order::where('created_at', 'like', $now . '%')
@@ -715,9 +702,6 @@ class OrderController extends Controller
         $order->save();
 
         ManipulationActivity::noteManipulationAdmin("Check-out Đơn Hàng ( Order Code : " . $request->order_code . ")");
-
-        /* Hàm Tính Doanh Thu */
-        $this->statistical();
 
         return redirect()->back()->with('success', 'Check-out thành công');
     }
