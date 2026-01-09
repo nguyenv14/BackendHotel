@@ -22,16 +22,22 @@ session_start();
 
 class DashboardController extends Controller
 {
+	public function __construct()
+	{
+	}
     public function show_dashboard()
     {
        /* Doanh Thu Hôm Nay */
        $now = Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d');
-       $statical = Statistical::where('order_date', $now)->first();
-       if($statical){
-        $todays_revenue = $statical->sales;
-       }else{
-        $todays_revenue = 0;
-       }
+        $todays_revenue = Order::whereDate(
+                'created_at',
+                Carbon::now('Asia/Ho_Chi_Minh')->toDateString()
+            )
+            ->whereHas('payment', function ($q) {
+                $q->where('payment_status', 1);
+            })
+            ->sum('total_price');
+            
        /* Đơn Hàng Hôm Nay */
        $todays_order = Order::where('created_at', 'like', $now . '%')->count();  
        /* Đánh Giá Hôm Nay */

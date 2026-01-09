@@ -23,7 +23,7 @@
 
      <!-- Thống Kê Tổng Quan -->
      <div class="row">
-        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-6 grid-margin stretch-card">
+        <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 grid-margin stretch-card">
             <div class="card card-statistics">
                 <div class="card-body">
                     <div class="clearfix">
@@ -41,7 +41,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-6 grid-margin stretch-card">
+        <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 grid-margin stretch-card">
             <div class="card card-statistics">
                 <div class="card-body">
                     <div class="clearfix">
@@ -58,7 +58,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-6 grid-margin stretch-card">
+        <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 grid-margin stretch-card">
             <div class="card card-statistics">
                 <div class="card-body">
                     <div class="clearfix">
@@ -75,7 +75,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-6 grid-margin stretch-card">
+        {{-- <div class="col-xl-3 col-lg-3 col-md-3 col-sm-6 grid-margin stretch-card">
             <div class="card card-statistics">
                 <div class="card-body">
                     <div class="clearfix">
@@ -91,7 +91,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> --}}
 
         <div class="col-md-4 stretch-card grid-margin">
             <div class="card bg-gradient-danger card-img-holder text-white">

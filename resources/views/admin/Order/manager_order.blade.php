@@ -112,133 +112,139 @@
                     @endhasanyroles --}}
                 </form>
                 <div class="table-responsive">
-                <table style="margin-top:20px " class="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>#Mã Đặt Phòng </th>
-                            <th>Ngày Nhận Phòng</th>
-                            <th>Ngày Trả Phòng</th>
-                            <th>Trạng Thái</th>
-                            <th>Thanh Toán</th>
-                            <th>Trạng Thái TT</th>
-                            <th>Ngày Tạo Đơn</th>
-                            <th> Thao Tác </th>
-                        </tr>
-                    </thead>
-                    <tbody id="load_order">
-                        @foreach ($items as $order)
+                    <table style="margin-top:20px " class="table table-bordered">
+                        <thead>
                             <tr>
-                                <td>{{ $order->order_code }}</td>
-                                <td>{{ $order->start_day }}</td>
-                                <td>{{ $order->end_day }}</td>
+                                <th>#Mã Đặt Phòng </th>
+                                <th>Ngày Nhận Phòng</th>
+                                <th>Ngày Trả Phòng</th>
+                                <th>Trạng Thái</th>
+                                <th>Thanh Toán</th>
+                                <th>Trạng Thái TT</th>
+                                <th>Ngày Tạo Đơn</th>
+                                <th> Thao Tác </th>
+                            </tr>
+                        </thead>
+                        <tbody id="load_order">
+                            @foreach ($items as $order)
+                                <tr>
+                                    <td>{{ $order->order_code }}</td>
+                                    <td>{{ $order->start_day }}</td>
+                                    <td>{{ $order->end_day }}</td>
 
-                                {{-- Trạng thái đơn hàng --}}
-                                <td>
-                                    @if ($order->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
-                                        <span class="text-info"><b>Đang Chờ Duyệt</b></span>
-                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN)
-                                        <span class="text-danger"><b>Đơn Phòng Bị Từ Chối</b></span>
-                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_CUSTOMER)
-                                        <span class="text-danger"><b>Khách Hàng Hủy Đơn</b></span>
-                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
-                                        <span class="text-primary"><b>Check-in</b></span>
-                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::CHECK_OUT)
-                                        <span class="text-warning"><b>Check-out</b></span>
-                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::COMPLETED)
-                                        <span class="text-success"><b>Đã Hoàn Thành</b></span>
-                                    @elseif($order->order_status == \App\Http\Enums\OrderStatus::NO_SHOW)
-                                        <span class="text-danger"><b>No Show</b></span>
-                                    @endif
-                                </td>
-
-                                {{-- Phương thức thanh toán --}}
-                                <td>
-                                    @if ($order->payment)
-                                        @if ($order->payment->payment_method == 4)
-                                            Khi Nhận Phòng
-                                        @elseif($order->payment->payment_method == 1)
-                                            Thanh Toán Momo
-                                        @elseif ($order->payment->payment_method == 2)
-                                            Thanh Toán Qua VNPAY
+                                    {{-- Trạng thái đơn hàng --}}
+                                    <td>
+                                        @if ($order->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
+                                            <span class="text-info"><b>Đang Chờ Duyệt</b></span>
+                                        @elseif($order->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN)
+                                            <span class="text-danger"><b>Đơn Phòng Bị Từ Chối</b></span>
+                                        @elseif($order->order_status == \App\Http\Enums\OrderStatus::CANCELLED_BY_CUSTOMER)
+                                            <span class="text-danger"><b>Khách Hàng Hủy Đơn</b></span>
+                                        @elseif($order->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
+                                            <span class="text-primary"><b>Check-in</b></span>
+                                        @elseif($order->order_status == \App\Http\Enums\OrderStatus::CHECK_OUT)
+                                            <span class="text-warning"><b>Check-out</b></span>
+                                        @elseif($order->order_status == \App\Http\Enums\OrderStatus::COMPLETED)
+                                            <span class="text-success"><b>Đã Hoàn Thành</b></span>
+                                        @elseif($order->order_status == \App\Http\Enums\OrderStatus::NO_SHOW)
+                                            <span class="text-danger"><b>No Show</b></span>
                                         @endif
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
+                                    </td>
 
-                                {{-- Trạng thái thanh toán --}}
-                                <td>
-                                    @if ($order->payment)
-                                        @if ($order->payment->payment_status == 0)
-                                            Chưa Thanh Toán
-                                        @elseif($order->payment->payment_status == 1)
-                                            Đã Thanh Toán
+                                    {{-- Phương thức thanh toán --}}
+                                    <td>
+                                        @if ($order->payment)
+                                            @if ($order->payment->payment_method == 4)
+                                                Khi Nhận Phòng
+                                            @elseif($order->payment->payment_method == 1)
+                                                Thanh Toán Momo
+                                            @elseif ($order->payment->payment_method == 2)
+                                                Thanh Toán Qua VNPAY
+                                            @endif
+                                        @else
+                                            N/A
                                         @endif
-                                    @else
-                                        N/A
-                                    @endif
-                                </td>
+                                    </td>
 
-                                <td>{{ $order->created_at }}</td>
+                                    {{-- Trạng thái thanh toán --}}
+                                    <td>
+                                        @if ($order->payment)
+                                            @if ($order->payment->payment_status == 0)
+                                                Chưa Thanh Toán
+                                            @elseif($order->payment->payment_status == 1)
+                                                Đã Thanh Toán
+                                            @endif
+                                        @else
+                                            N/A
+                                        @endif
+                                    </td>
 
-                                {{-- Hành động --}}
-                                <td>
-                                    @if ($order->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
-                                        <button style="margin-top:10px"
-                                            class="btn-sm btn-gradient-success btn-rounded btn-fw btn-order-status"
-                                            data-order_code="{{ $order->order_code }}" data-order_status="{{ \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL }}">
-                                            Duyệt Đơn <i class="mdi mdi-calendar-check"></i>
-                                        </button>
-                                        <br>
-                                        <button style="margin-top:10px"
-                                            class="btn-sm btn-gradient-danger btn-fw btn-order-status"
-                                            data-order_code="{{ $order->order_code }}" data-order_status="{{ \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN }}">
-                                            Từ Chối <i class="mdi mdi-calendar-remove"></i>
-                                        </button>
-                                        <br>
-                                    @endif
+                                    <td>{{ $order->created_at }}</td>
 
-                                    @if ($order->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
-                                        <div style="margin-top:10px">
-                                            <label for="checkin_code_{{ $order->order_id }}" style="font-size: 12px; font-weight: bold;">Mã Check-in:</label>
-                                            <input type="text" 
-                                                   id="checkin_code_{{ $order->order_id }}" 
-                                                   class="form-control form-control-sm" 
-                                                   placeholder="Nhập mã check-in"
-                                                   value="{{ $order->checkin_code ?? '' }}"
-                                                   style="margin-top: 5px; width: 150px; display: inline-block;">
-                                            <button type="button"
+                                    {{-- Hành động --}}
+                                    <td>
+                                        @if ($order->order_status == \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL)
+                                            <button style="margin-top:10px"
+                                                class="btn-sm btn-gradient-success btn-rounded btn-fw btn-order-status"
+                                                data-order_code="{{ $order->order_code }}"
+                                                data-order_status="{{ \App\Http\Enums\OrderStatus::WAITING_FOR_APPROVAL }}">
+                                                Duyệt Đơn <i class="mdi mdi-calendar-check"></i>
+                                            </button>
+                                            <br>
+                                            <button style="margin-top:10px"
+                                                class="btn-sm btn-gradient-danger btn-fw btn-order-status"
+                                                data-order_code="{{ $order->order_code }}"
+                                                data-order_status="{{ \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN }}">
+                                                Từ Chối <i class="mdi mdi-calendar-remove"></i>
+                                            </button>
+                                            <br>
+                                        @endif
+
+                                        @if ($order->order_status == \App\Http\Enums\OrderStatus::CHECK_IN)
+                                            <div style="margin-top:10px">
+                                                <label for="checkin_code_{{ $order->order_id }}"
+                                                    style="font-size: 12px; font-weight: bold;">Mã Check-in:</label>
+                                                <input type="text" id="checkin_code_{{ $order->order_id }}"
+                                                    class="form-control form-control-sm" placeholder="Nhập mã check-in"
+                                                    value="{{ $order->checkin_code ?? '' }}"
+                                                    style="margin-top: 5px; width: 150px; display: inline-block;">
+                                                <button type="button"
                                                     class="btn-sm btn-gradient-primary btn-checkin-order mt-2"
                                                     data-order_code="{{ $order->order_code }}"
                                                     data-order_id="{{ $order->order_id }}">
-                                                Xác Nhận Check-in <i class="mdi mdi-check"></i>
+                                                    Xác Nhận Check-in <i class="mdi mdi-check"></i>
+                                                </button>
+                                            </div>
+                                        @endif
+
+                                        @if (in_array($order->order_status, [
+                                                \App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN,
+                                                \App\Http\Enums\OrderStatus::CHECK_IN,
+                                                \App\Http\Enums\OrderStatus::CHECK_OUT,
+                                                \App\Http\Enums\OrderStatus::CANCELLED_BY_CUSTOMER,
+                                            ]))
+                                            @hasanyroles(['admin', 'manager'])
+                                            <button type="button"
+                                                class="btn-sm btn-gradient-danger btn-icon-text btn-delete-item mt-2"
+                                                data-item_id="{{ $order->order_id }}">
+                                                <i class="mdi mdi-delete-forever btn-icon-prepend"></i> Xóa Đơn
                                             </button>
-                                        </div>
-                                    @endif
+                                            <br>
+                                            @endhasanyroles
+                                        @endif
 
-                                    @if (in_array($order->order_status, [\App\Http\Enums\OrderStatus::CANCELLED_BY_ADMIN, \App\Http\Enums\OrderStatus::CHECK_IN, \App\Http\Enums\OrderStatus::CHECK_OUT, \App\Http\Enums\OrderStatus::CANCELLED_BY_CUSTOMER]))
-                                        @hasanyroles(['admin', 'manager'])
-                                        <button type="button"
-                                            class="btn-sm btn-gradient-danger btn-icon-text btn-delete-item mt-2"
-                                            data-item_id="{{ $order->order_id }}">
-                                            <i class="mdi mdi-delete-forever btn-icon-prepend"></i> Xóa Đơn
-                                        </button>
-                                        <br>
-                                        @endhasanyroles
-                                    @endif
-
-                                    <a
-                                        href="{{ url('admin/hotel/manager/order/view-order?order_id=' . $order->order_id) }}">
-                                        <button style="margin-top:10px"
-                                            class="btn-sm btn-gradient-info btn-rounded btn-fw">
-                                            Xem Đơn <i class="mdi mdi-eye"></i>
-                                        </button>
-                                    </a>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                                        <a
+                                            href="{{ url('admin/hotel/manager/order/view-order?order_id=' . $order->order_id) }}">
+                                            <button style="margin-top:10px"
+                                                class="btn-sm btn-gradient-info btn-rounded btn-fw">
+                                                Xem Đơn <i class="mdi mdi-eye"></i>
+                                            </button>
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
                 <div id="loading" style="display:none; text-align:center; padding:10px;">
                     <div class="spinner-border text-primary" role="status">
@@ -258,7 +264,7 @@
             width: 150px !important;
         }
     </style>
-    {{-- Phân Trang Bằng Paginate + Boostraps , Apply view Boostrap trong Provider --}}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <nav aria-label="Page navigation example">
         {!! $items->links('admin.pagination') !!}
     </nav>
@@ -362,6 +368,34 @@
                 }
             })
         }
+    </script>
+
+    <script>
+        $(document).on('click', '.btn-order-status', function() {
+            var order_code = $(this).data('order_code');
+            var order_status = $(this).data('order_status');
+            var _token = $('meta[name="csrf-token"]').attr('content');
+            $.ajax({
+                url: '{{ url('admin/hotel/manager/order/update-status-order') }}',
+                method: 'GET',
+                data: {
+                    _token: _token,
+                    order_code: order_code,
+                    order_status: order_status,
+                },
+                success: function(data) {
+                    getPosts(notePage);
+                    if (data == "refuse") {
+                        message_toastr("success", 'Mã ' + order_code + ' Đã Bị Từ Chối !');
+                    } else if (data == "browser") {
+                        message_toastr("success", 'Mã ' + order_code + ' Đã Được Duyệt !');
+                    }
+                },
+                error: function(data) {
+                    alert("Nhân Ơi Fix Bug Huhu :<");
+                },
+            });
+        });
     </script>
 
     <script>
@@ -483,52 +517,7 @@
                 });
             });
         });
-        // === TÌM KIẾM ===
 
-        // $(document).on('click', '.btn-order-status', function() {
-        //     var order_code = $(this).data('order_code');
-        //     var order_status = $(this).data('order_status');
-        //     var _token = $('meta[name="csrf-token"]').attr('content');
-
-        //     $.ajax({
-        //         url: '{{ url('admin/order/update-status-order') }}',
-        //         method: 'GET',
-        //         data: {
-        //             _token: _token,
-        //             order_code: order_code,
-        //             order_status: order_status,
-        //         },
-        //         success: function(data) {
-        //             getPosts(notePage);
-        //             if (data == "refuse") {
-        //                 message_toastr("success", 'Mã ' + order_code + ' Đã Bị Từ Chối !');
-        //             } else if (data == "browser") {
-        //                 message_toastr("success", 'Mã ' + order_code + ' Đã Được Duyệt !');
-        //             }
-        //         },
-        //         error: function(data) {
-        //             alert("Nhân Ơi Fix Bug Huhu :<");
-        //         },
-        //     });
-
-        // });
-
-        // $('#search').keyup(function() {
-        //     var key_sreach = $(this).val();
-        // $.ajax({
-        //     url: '{{ url('admin/order/search-order') }}',
-        //     method: 'GET',
-        //     data: {
-        //         key_sreach: key_sreach,
-        //     },
-        //     success: function(data) {
-        //         $('#load_order').html(data);
-        //     },
-        //     error: function() {
-        //         alert("Bug Huhu :<<");
-        //     }
-        // })
-        // });
 
         $(document).on('click', '.btn-delete-item', function() {
             var item_id = $(this).data('item_id');
@@ -587,14 +576,14 @@
             var order_code = $(this).data('order_code');
             var order_id = $(this).data('order_id');
             var checkin_code = $('#checkin_code_' + order_id).val().trim();
-            
+
             if (!checkin_code) {
                 message_toastr("error", 'Vui lòng nhập mã check-in!');
                 return;
             }
 
             var _token = $('meta[name="csrf-token"]').attr('content');
-            
+
             $.ajax({
                 url: '{{ url('kiem-tra-don-hang/checkin-order') }}',
                 method: 'POST',

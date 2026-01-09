@@ -21,6 +21,11 @@ class Kernel extends ConsoleKernel
         
         // Kiểm tra đơn hàng no show mỗi ngày lúc 00:00
         $schedule->command('orders:check-no-show')->daily();
+
+        // Cập nhật document với ChatBot mỗi ngày lúc 01:00
+        $schedule->command('document:update-with-chatbot')->dailyAt('01:00');
+        // Cập nhật document với Recommendation mỗi ngày lúc 02:00
+        $schedule->command('document:update-with-recommendation')->dailyAt('02:00');
     }
 
     /**

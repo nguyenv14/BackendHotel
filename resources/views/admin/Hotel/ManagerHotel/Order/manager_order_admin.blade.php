@@ -92,7 +92,6 @@
     <nav aria-label="Page navigation example">
         {!! $items->links('admin.pagination') !!}
     </nav>
-    {{-- Phân Trang Bằng Ajax --}}
     <script>
         var notePage = 1;
         getPosts(notePage);
@@ -145,8 +144,9 @@
             var order_code = $(this).data('order_code');
             var order_status = $(this).data('order_status');
             var _token = $('meta[name="csrf-token"]').attr('content');
-
-            $.ajax({
+            console.log(order_code);
+            console.log(order_status);
+          /*  $.ajax({
                 url: '{{ url('admin/hotel/manager/order/update-status-order') }}',
                 method: 'GET',
                 data: {
@@ -166,7 +166,7 @@
                     alert("Nhân Ơi Fix Bug Huhu :<");
                 },
             });
-
+*/
         });
 
         $('#search').keyup(function() {
